@@ -1,0 +1,1551 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LeoBrain — Dossier operativo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #10141B;
+    --surface: #1A2029;
+    --surface-raised: #212836;
+    --line: #333B49;
+    --paper: #EDE9DF;
+    --paper-dim: #A9A491;
+    --red: #C0392B;
+    --brass: #B08D57;
+    --slate: #5C7A99;
+    --teal: #4F8A7B;
+    --gray: #7A8291;
+    --ok: #6FA97A;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+  }
+  .app{max-width:920px;margin:0 auto;padding:0 0 80px;}
+
+  /* HEADER / FOLDER TABS */
+  .header{
+    padding:28px 20px 0;
+    border-bottom:1px solid var(--line);
+  }
+  .header-top{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-bottom:22px;
+  }
+  .brand{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:26px;
+    letter-spacing:0.01em;
+  }
+  .brand span{color:var(--brass);}
+  .file-id{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--paper-dim);
+    letter-spacing:0.06em;
+  }
+  .tabs{display:flex;gap:2px;}
+  .tab{
+    flex:1;
+    padding:12px 10px 14px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-bottom:none;
+    border-radius:6px 6px 0 0;
+    color:var(--paper-dim);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    cursor:pointer;
+    text-align:center;
+    transition:all .15s ease;
+    position:relative;
+    top:1px;
+  }
+  .tab.active{
+    background:var(--ink);
+    color:var(--paper);
+    border-color:var(--line);
+    border-bottom:1px solid var(--ink);
+  }
+  .tab .tab-num{color:var(--brass);margin-right:6px;}
+
+  .view{display:none;padding:28px 20px;}
+  .view.active{display:block;animation:fadeIn .25s ease;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  /* HOME / RECORD */
+  .record-wrap{
+    display:flex;flex-direction:column;align-items:center;
+    padding:28px 0 8px;
+  }
+  .record-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;color:var(--paper-dim);
+    letter-spacing:0.08em;text-transform:uppercase;
+    margin-bottom:20px;
+  }
+  .mic-btn{
+    width:120px;height:120px;border-radius:50%;
+    background:var(--surface-raised);
+    border:2px solid var(--brass);
+    color:var(--paper);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    transition:all .2s ease;
+    position:relative;
+  }
+  .mic-btn:hover{transform:scale(1.03);}
+  .mic-btn.recording{
+    border-color:var(--red);
+    background:rgba(192,57,43,0.15);
+    animation:pulse 1.4s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(192,57,43,0.45);}
+    70%{box-shadow:0 0 0 22px rgba(192,57,43,0);}
+    100%{box-shadow:0 0 0 0 rgba(192,57,43,0);}
+  }
+  .mic-btn svg{width:38px;height:38px;}
+  .record-status{
+    margin-top:16px;font-size:13px;color:var(--paper-dim);
+    min-height:18px;text-align:center;
+  }
+  .transcript-box{
+    margin-top:22px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:16px;
+  }
+  .transcript-box label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;color:var(--paper-dim);
+    text-transform:uppercase;letter-spacing:0.06em;
+  }
+  .transcript-box textarea{
+    width:100%;min-height:100px;margin-top:10px;
+    background:var(--ink);border:1px solid var(--line);
+    border-radius:6px;color:var(--paper);
+    font-family:'IBM Plex Sans', sans-serif;font-size:14.5px;
+    padding:12px;resize:vertical;
+  }
+  .transcript-box textarea:focus{outline:none;border-color:var(--brass);}
+  .btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .btn{
+    font-family:'IBM Plex Sans', sans-serif;font-size:13.5px;font-weight:600;
+    padding:10px 18px;border-radius:6px;border:1px solid var(--line);
+    background:var(--surface-raised);color:var(--paper);cursor:pointer;
+    transition:all .15s ease;
+  }
+  .btn:hover{border-color:var(--brass);}
+  .btn:disabled{opacity:0.45;cursor:not-allowed;}
+  .btn-primary{background:var(--brass);border-color:var(--brass);color:var(--ink);}
+  .btn-primary:hover{background:#c19d68;}
+  .btn-ghost{background:transparent;}
+  .btn-danger{color:var(--red);border-color:rgba(192,57,43,0.4);background:transparent;}
+  .btn-small{padding:6px 12px;font-size:12px;}
+
+  .extract-list{margin-top:22px;display:flex;flex-direction:column;gap:12px;}
+  .extract-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    padding:14px 16px;
+  }
+  .extract-card .row{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px;}
+  .extract-card input, .extract-card select, .extract-card textarea{
+    background:var(--ink);border:1px solid var(--line);border-radius:5px;
+    color:var(--paper);font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;
+    padding:7px 9px;
+  }
+  .extract-card input[type=text]{flex:1;}
+  .extract-title-input{font-weight:600;font-size:15px !important;}
+  .field-label{font-size:10px;color:var(--paper-dim);text-transform:uppercase;letter-spacing:0.05em;display:block;margin-bottom:3px;font-family:'IBM Plex Mono',monospace;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;}
+  .extract-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px;}
+
+  /* STAMP badges */
+  .stamp{
+    display:inline-flex;align-items:center;gap:5px;
+    font-family:'IBM Plex Mono', monospace;font-size:10.5px;font-weight:600;
+    padding:3px 8px;border-radius:3px;letter-spacing:0.04em;
+    border:1px solid currentColor;text-transform:uppercase;
+  }
+  .p1{color:var(--red);} .p2{color:var(--brass);} .p3{color:var(--slate);}
+  .p4{color:var(--teal);} .p5{color:var(--gray);}
+
+  /* DASHBOARD */
+  .subtabs{display:flex;gap:8px;margin-bottom:22px;}
+  .subtab{
+    padding:8px 14px;border-radius:20px;border:1px solid var(--line);
+    background:transparent;color:var(--paper-dim);font-size:13px;cursor:pointer;
+    font-family:'IBM Plex Sans',sans-serif;
+  }
+  .subtab.active{background:var(--paper);color:var(--ink);border-color:var(--paper);font-weight:600;}
+
+  .priority-group{margin-bottom:26px;}
+  .priority-head{
+    display:flex;align-items:center;gap:10px;margin-bottom:10px;
+    padding-bottom:6px;border-bottom:1px solid var(--line);
+  }
+  .priority-head h3{
+    font-family:'Fraunces',serif;font-weight:600;font-size:16px;margin:0;
+  }
+  .task-card{
+    background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--gray);
+    border-radius:6px;padding:12px 14px;margin-bottom:8px;
+    display:flex;justify-content:space-between;gap:12px;align-items:flex-start;
+  }
+  .task-card.p1{border-left-color:var(--red);}
+  .task-card.p2{border-left-color:var(--brass);}
+  .task-card.p3{border-left-color:var(--slate);}
+  .task-card.p4{border-left-color:var(--teal);}
+  .task-card.p5{border-left-color:var(--gray);}
+  .task-card.done{opacity:0.4;}
+  .task-main{flex:1;}
+  .task-title{font-weight:600;font-size:14.5px;margin-bottom:3px;}
+  .task-title.done{text-decoration:line-through;}
+  .task-meta{font-size:12px;color:var(--paper-dim);display:flex;gap:10px;flex-wrap:wrap;}
+  .task-desc{font-size:13px;color:var(--paper-dim);margin-top:6px;}
+  .task-actions{display:flex;gap:6px;flex-shrink:0;}
+  .icon-btn{
+    background:transparent;border:1px solid var(--line);border-radius:5px;
+    width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+    color:var(--paper-dim);cursor:pointer;
+  }
+  .icon-btn:hover{color:var(--paper);border-color:var(--brass);}
+  .empty-state{
+    text-align:center;padding:50px 20px;color:var(--paper-dim);
+  }
+  .empty-state .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--brass);margin-bottom:8px;}
+
+  .bottleneck-group{
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    padding:16px;margin-bottom:14px;
+  }
+  .bottleneck-head{
+    display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;
+  }
+  .bottleneck-head h3{font-family:'Fraunces',serif;font-size:16px;margin:0;font-weight:600;}
+  .bottleneck-count{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--paper-dim);
+    background:var(--ink);padding:3px 8px;border-radius:10px;
+  }
+  .reminder-actions{display:flex;gap:8px;margin-top:12px;}
+
+  /* VADEMECUM */
+  .search-bar{
+    display:flex;gap:8px;margin-bottom:18px;
+  }
+  .search-bar input{
+    flex:1;background:var(--surface);border:1px solid var(--line);border-radius:6px;
+    color:var(--paper);padding:10px 12px;font-size:14px;font-family:'IBM Plex Sans',sans-serif;
+  }
+  .search-bar input:focus{outline:none;border-color:var(--brass);}
+  .vad-card{
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    padding:14px 16px;margin-bottom:10px;cursor:pointer;
+  }
+  .vad-card:hover{border-color:var(--brass);}
+  .vad-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;}
+  .vad-title{font-weight:600;font-size:14.5px;}
+  .vad-type{
+    font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--brass);
+    text-transform:uppercase;letter-spacing:0.05em;
+  }
+  .vad-preview{font-size:13px;color:var(--paper-dim);
+    overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+  .vad-full{display:none;margin-top:10px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;color:var(--paper);border-top:1px solid var(--line);padding-top:10px;}
+  .vad-card.open .vad-full{display:block;}
+  .vad-card.open .vad-preview{display:none;}
+
+  .section-title{
+    font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--paper-dim);
+    text-transform:uppercase;letter-spacing:0.08em;margin:26px 0 12px;
+  }
+  .add-vad-form{
+    background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:22px;
+  }
+  .add-vad-form input, .add-vad-form select, .add-vad-form textarea{
+    width:100%;background:var(--ink);border:1px solid var(--line);border-radius:5px;
+    color:var(--paper);padding:9px 11px;font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;
+    margin-bottom:10px;
+  }
+  .add-vad-form textarea{min-height:90px;resize:vertical;}
+
+  .ask-box{
+    background:var(--surface-raised);border:1px solid var(--brass);border-radius:8px;
+    padding:16px;margin-bottom:26px;
+  }
+  .ask-box .field-label{color:var(--brass);}
+  .ask-row{display:flex;gap:8px;margin-top:10px;}
+  .ask-row input{flex:1;background:var(--ink);border:1px solid var(--line);border-radius:6px;color:var(--paper);padding:10px 12px;font-size:14px;}
+  .ask-answer{
+    margin-top:14px;padding-top:14px;border-top:1px solid var(--line);
+    font-size:13.5px;line-height:1.65;white-space:pre-wrap;
+  }
+  .ask-answer .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--brass);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
+
+  .sintesi-card{
+    background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--gray);
+    border-radius:6px;padding:14px 16px;margin-bottom:10px;cursor:pointer;
+  }
+  .sintesi-card.p1{border-left-color:var(--red);}
+  .sintesi-card.p2{border-left-color:var(--brass);}
+  .sintesi-card.p3{border-left-color:var(--slate);}
+  .sintesi-card.p4{border-left-color:var(--teal);}
+  .sintesi-card.p5{border-left-color:var(--gray);}
+  .sintesi-card:hover{border-color:var(--brass);}
+  .sintesi-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;}
+  .sintesi-title{font-weight:600;font-size:14.5px;}
+  .sintesi-client{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--paper-dim);
+    white-space:nowrap;
+  }
+  .sintesi-preview{font-size:13px;color:var(--paper-dim);
+    overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+  .sintesi-full{display:none;margin-top:10px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;color:var(--paper);border-top:1px solid var(--line);padding-top:10px;}
+  .sintesi-card.open .sintesi-full{display:block;}
+  .sintesi-card.open .sintesi-preview{display:none;}
+  .sintesi-actions{display:flex;justify-content:flex-end;margin-top:8px;}
+
+  .approf-divider{border-top:1px dashed var(--line);margin:12px 0;}
+  .approf-label{
+    font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--brass);
+    text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;
+  }
+  .approf-text{font-size:13.5px;line-height:1.65;white-space:pre-wrap;color:var(--paper);margin-bottom:10px;}
+  .approf-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .approf-textarea{
+    width:100%;min-height:120px;background:var(--ink);border:1px solid var(--line);
+    border-radius:6px;color:var(--paper);font-family:'IBM Plex Sans',sans-serif;font-size:13.5px;
+    padding:10px;resize:vertical;margin-bottom:10px;
+  }
+  .approf-loading{font-size:13px;color:var(--paper-dim);padding:4px 0 10px;}
+
+  .spinner{
+    width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--brass);
+    border-radius:50%;animation:spin .7s linear infinite;display:inline-block;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--paper);color:var(--ink);padding:10px 18px;border-radius:6px;
+    font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .3s ease;
+    z-index:50;
+  }
+  .toast.show{opacity:1;}
+
+  @media(max-width:600px){
+    .grid2{grid-template-columns:1fr;}
+    .tab{font-size:10.5px;padding:10px 6px 12px;}
+    .tab .tab-num{margin-right:3px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <div class="header-top">
+      <div class="brand">Leo<span>Brain</span></div>
+      <div class="file-id" id="fileDate"></div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" data-view="record"><span class="tab-num">A</span>Imbuto vocale</div>
+      <div class="tab" data-view="matrix"><span class="tab-num">B</span>Matrice di flusso</div>
+      <div class="tab" data-view="vademecum"><span class="tab-num">C</span>Vademecum</div>
+      <div class="tab" data-view="sintesi"><span class="tab-num">D</span>Sintesi</div>
+      <div class="tab" data-view="persone"><span class="tab-num">E</span>Persone</div>
+      <div class="tab" data-view="settings"><span class="tab-num">F</span>Setup</div>
+    </div>
+  </div>
+
+  <!-- VIEW A: RECORD -->
+  <div class="view active" id="view-record">
+    <div class="record-wrap">
+      <div class="record-label">Scarico mentale</div>
+      <button class="mic-btn" id="micBtn" aria-label="Registra">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z"/><path d="M19 11a7 7 0 0 1-14 0"/><line x1="12" y1="18" x2="12" y2="22"/></svg>
+      </button>
+      <div class="record-status" id="recordStatus">Premi e parla — oppure scrivi qui sotto</div>
+    </div>
+
+    <div class="transcript-box">
+      <label>Testo / trascrizione</label>
+      <textarea id="transcriptArea" placeholder="Es. Ho appena finito con Sugar Plus. Hanno accettato il piano di successione. Aspetto il via libera definitivo da Bausani entro venerdì. Devo mandare una mail a Serena per il progetto HR interno."></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="extractBtn">Estrai attività</button>
+        <button class="btn btn-ghost" id="clearBtn">Svuota</button>
+      </div>
+    </div>
+
+    <div class="extract-list" id="extractList"></div>
+  </div>
+
+  <!-- VIEW B: MATRIX -->
+  <div class="view" id="view-matrix">
+    <div class="subtabs">
+      <button class="subtab active" data-sub="carico">A mio carico</button>
+      <button class="subtab" data-sub="attesa">Colli di bottiglia</button>
+    </div>
+    <div id="matrixContent"></div>
+  </div>
+
+  <!-- VIEW C: VADEMECUM -->
+  <div class="view" id="view-vademecum">
+    <div class="ask-box">
+      <span class="field-label">Chiedi all'archivio</span>
+      <div class="ask-row">
+        <input type="text" id="askInput" placeholder="Es. Quali erano i fattori di acquisto emersi nel focus group Ferraroni?">
+        <button class="btn btn-primary" id="askBtn">Chiedi</button>
+      </div>
+      <div id="askAnswer"></div>
+    </div>
+
+    <div class="search-bar">
+      <input type="text" id="vadSearch" placeholder="Cerca nei framework, memorandum, assessment…">
+      <button class="btn" id="addVadToggle">+ Nuovo</button>
+    </div>
+
+    <div class="add-vad-form" id="addVadForm" style="display:none;">
+      <input type="text" id="vadTitle" placeholder="Titolo (es. Piano di Successione — protocollo in 5 step)">
+      <select id="vadType">
+        <option>Intervento Verticale</option>
+        <option>Memorandum</option>
+        <option>Focus Group</option>
+        <option>Assessment</option>
+      </select>
+      <textarea id="vadText" placeholder="Testo / metodologia in Markdown…"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="saveVadBtn">Salva nel Vademecum</button>
+        <button class="btn btn-ghost" id="cancelVadBtn">Annulla</button>
+      </div>
+    </div>
+
+    <div class="section-title">Archivio</div>
+    <div id="vadList"></div>
+  </div>
+
+  <!-- VIEW D: SINTESI & CONTENUTI -->
+  <div class="view" id="view-sintesi">
+    <div class="search-bar">
+      <input type="text" id="sintesiSearch" placeholder="Cerca per cliente, progetto, parola chiave…">
+      <button class="btn" id="addSintesiToggle">+ Nuova</button>
+    </div>
+
+    <div class="add-vad-form" id="addSintesiForm" style="display:none;">
+      <input type="text" id="sintesiTitolo" placeholder="Titolo (es. Sabatani — crisi GDO e memorandum AD)">
+      <div class="grid2">
+        <input type="text" id="sintesiCliente" placeholder="Cliente / Progetto (es. Gestione Interna G&A)">
+        <select id="sintesiPriorita">
+          <option value="1">1 — Scadenze a calendario</option>
+          <option value="2">2 — Commerciale e clienti</option>
+          <option value="3">3 — Strategia aziendale</option>
+          <option value="4">4 — Operatività G&A e HR</option>
+          <option value="5">5 — Studio, formazione, AI</option>
+        </select>
+      </div>
+      <textarea id="sintesiTesto" placeholder="Sintesi di ciò che è stato condiviso o discusso…"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="saveSintesiBtn">Salva sintesi</button>
+        <button class="btn btn-ghost" id="cancelSintesiBtn">Annulla</button>
+      </div>
+    </div>
+
+    <div id="sintesiContent"></div>
+  </div>
+
+  <!-- VIEW E: PERSONE & CLIENTI -->
+  <div class="view" id="view-persone">
+    <div class="search-bar">
+      <input type="text" id="personeSearch" placeholder="Cerca per nome…">
+      <button class="btn" id="addPersonaToggle">+ Nuova</button>
+    </div>
+
+    <div class="add-vad-form" id="addPersonaForm" style="display:none;">
+      <input type="text" id="personaNome" placeholder="Nome (es. Michele Chini)">
+      <textarea id="personaNote" placeholder="Preferenze, dettagli operativi, caratteristiche ricorrenti…"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="savePersonaBtn">Salva scheda</button>
+        <button class="btn btn-ghost" id="cancelPersonaBtn">Annulla</button>
+      </div>
+    </div>
+
+    <div class="ask-box">
+      <span class="field-label">Chiedi a LeoBrain — cerca ovunque</span>
+      <div class="ask-row">
+        <input type="text" id="globalAskInput" placeholder="Es. a chi avevo promesso il preventivo?">
+        <button class="btn btn-primary" id="globalAskBtn">Chiedi</button>
+      </div>
+      <div id="globalAskAnswer"></div>
+    </div>
+
+    <div id="personeContent"></div>
+  </div>
+
+  <!-- VIEW F: SETUP / IMPOSTAZIONI -->
+  <div class="view" id="view-settings">
+    <div class="ask-box">
+      <span class="field-label">Chiave API Anthropic</span>
+      <div style="font-size:12.5px;color:var(--paper-dim);margin-top:8px;line-height:1.5;">
+        Necessaria per le funzioni AI (estrazione, sintesi, approfondimenti). Si ottiene su console.anthropic.com — resta salvata solo su questo dispositivo, non viene mai inviata altrove se non ad Anthropic.
+      </div>
+      <div class="ask-row">
+        <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+        <button class="btn btn-primary" id="saveApiKeyBtn">Salva</button>
+      </div>
+      <div id="apiKeyStatus" style="margin-top:10px;font-size:12.5px;"></div>
+    </div>
+
+    <div class="section-title">Dati locali</div>
+    <div style="font-size:13px;color:var(--paper-dim);line-height:1.6;margin-bottom:14px;">
+      Task, sintesi, vademecum e persone sono salvati in questo browser, su questo dispositivo. Non si sincronizzano automaticamente altrove.
+    </div>
+    <button class="btn btn-danger" id="exportDataBtn">Esporta backup (JSON)</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- STATE & STORAGE ---------- */
+let tasks = [];
+let vademecum = [];
+let sintesi = [];
+let persone = [];
+let recognizing = false;
+let recognition = null;
+let extractedCandidates = [];
+let extractedSintesiCandidates = [];
+let extractedPersoneCandidates = [];
+
+const PRIORITY_LABELS = {
+  1: 'Livello 1 — Scadenze a calendario',
+  2: 'Livello 2 — Commerciale e clienti',
+  3: 'Livello 3 — Strategia aziendale',
+  4: 'Livello 4 — Operatività G&A e HR',
+  5: 'Livello 5 — Studio, formazione, AI'
+};
+
+function fmtDate(){
+  const d = new Date();
+  return d.toLocaleDateString('it-IT', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+}
+document.getElementById('fileDate').textContent = fmtDate();
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+/* ---------- LOCAL STORAGE (standalone, no Claude artifact needed) ---------- */
+async function storageGet(key){
+  const v = localStorage.getItem('leobrain_'+key);
+  if(v === null){ throw new Error('not found'); }
+  return { key, value: v };
+}
+async function storageSet(key, value){
+  localStorage.setItem('leobrain_'+key, value);
+  return { key, value };
+}
+
+/* ---------- ANTHROPIC API KEY ---------- */
+function getApiKey(){
+  return localStorage.getItem('leobrain_api_key') || '';
+}
+function setApiKey(key){
+  localStorage.setItem('leobrain_api_key', key.trim());
+}
+
+const AI_MODEL = 'claude-haiku-4-5-20251001';
+
+async function callClaude(system, userContent, maxTokens){
+  const apiKey = getApiKey();
+  if(!apiKey){
+    throw new Error('Nessuna chiave API impostata. Vai in Impostazioni e inseriscila.');
+  }
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({
+      model: AI_MODEL,
+      max_tokens: maxTokens || 1000,
+      system: system,
+      messages: [{ role: "user", content: userContent }]
+    })
+  });
+  if(!response.ok){
+    const errBody = await response.text().catch(()=> '');
+    let msg = 'HTTP ' + response.status;
+    try{
+      const parsed = JSON.parse(errBody);
+      if(parsed.error && parsed.error.message) msg = parsed.error.message;
+    }catch(e){ if(errBody) msg += ' — ' + errBody.slice(0,200); }
+    throw new Error(msg);
+  }
+  const data = await response.json();
+  const text = (data.content || []).map(b=>b.text||'').join('').trim();
+  if(!text){ throw new Error('Risposta vuota dal modello'); }
+  return text;
+}
+
+const SEED_TASKS = [
+  { titolo:"Definire con Davide i nodi della scissione", cliente:"Gestione Interna G&A", priorita:3, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Maggioranza (51% richiesto da Davide in consulenza), patti parasociali, garanzie manageriali, perizia di valorizzazione — Scenario 1: scissione in G&P (consulenza), Tech Clinique (turismo), G&A Servizi (servizi/building)." },
+  { titolo:"Preparare forecast e proiezioni finanziarie 2027/2028", cliente:"Gestione Interna G&A", priorita:3, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Proiezioni per i nuovi 'interventi verticali' da presentare ai soci, nell'ambito della revisione del modello di business G&P." },
+  { titolo:"Prenotare sala Regus a Verona — Riunione Soci", cliente:"Gestione Interna G&A", priorita:1, stato:"Da fare", attendo_da:null, scadenza:"2026-07-24",
+    descrizione:"Incontro mattutino del 24 luglio con Andrea e Daniele per la revisione del modello di offerta." },
+  { titolo:"Analizzare i report di Strategy Innovation", cliente:"Gestione Interna G&A", priorita:5, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Valutare l'uso della piattaforma AI (proposta da Bagnoli/Castagnetti) per i check-up strategici automatici in ottica pre-sales." },
+  { titolo:"Aggiornamento Progetto Carichi di Lavoro", cliente:"Gestione Interna G&A", priorita:4, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Chiamare Serena per lo stato di avanzamento del comitato su carichi di lavoro e sull'adozione del gestionale unico (Qlik)." },
+  { titolo:"Monitoraggio survey Ascolto del Contesto", cliente:"Gestione Interna G&A", priorita:4, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Chiamare Gisella per il monitoraggio del lancio della survey sul clima aziendale." },
+  { titolo:"Lanciare il Registro dei Curzi", cliente:"Gestione Interna G&A", priorita:4, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Progetto 'Curzi': consentire ai collaboratori di segnare le azioni formative pianificate, per incentivare la condivisione del know-how." },
+  { titolo:"Colloquio con Silvia Raffaello", cliente:"Gestione Interna G&A", priorita:4, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Discutere un potenziale inquadramento più strutturato come Project Manager, oltre la fornitura a progetto." },
+  { titolo:"Rispondere a Davide sui contatti aperti", cliente:"Gestione Interna G&A", priorita:4, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Follow-up su Girardi, Trenti, Dal Pozzo, Segalla, Fellin." },
+  { titolo:"Recupero furgoncino per Benedetta", cliente:"Gestione Interna G&A", priorita:4, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Capire come organizzare il mezzo per accompagnarla in aeroporto." },
+  { titolo:"Memorandum strategico per futuro AD", cliente:"Sabatani", priorita:2, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Linee guida su cultura e organizzazione, per separare la purpose aziendale dai dilemmi emotivi dei titolari — azienda in balia delle negoziazioni GDO, crisi motivazionale di Filippo." },
+  { titolo:"Attendere via libera per valorizzazione Piano di Successione", cliente:"Sugar Plus (EDF Man)", priorita:2, stato:"In Attesa", attendo_da:"Sugar Plus / EDF Man", scadenza:null,
+    descrizione:"Dopo il via libera, formulare la valorizzazione economica della proposta per il Piano di Successione del Middle Management, in vista dell'uscita dei top manager (tra cui Massimo e Paolo) entro 3-5 anni." },
+  { titolo:"Incontro con Michele (Chini) — Focus Group rete vendita", cliente:"Ferraroni", priorita:2, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Definire in modo strutturato il Focus Group con la rete vendita per mappare i driver di acquisto degli allevatori, in un mercato mangimi saturo." },
+  { titolo:"Fissare incontro implementazione CRM", cliente:"Bertani / Metalworking", priorita:1, stato:"Da fare", attendo_da:null, scadenza:"2026-07-29",
+    descrizione:"Urgente: da chiudere prima della partenza di Giacomo il 29 luglio. Collegato al 'Planner Agile' sviluppato per sostituire i fogli Excel nella schedulazione delle commesse." },
+  { titolo:"Richiamare Federico Gori e fatturare saldo", cliente:"Microgate", priorita:2, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Avviare la nuova attività richiesta e fatturare il saldo del primo periodo progettuale, nonostante la posizione di Gori sui processi R&D interni ('perfetti, non necessitano interventi')." },
+  { titolo:"Caseificio di Primiero — anticipare incontro", cliente:"Caseificio di Primiero", priorita:1, stato:"Da fare", attendo_da:null, scadenza:"2026-07-21",
+    descrizione:"Anticipare il primo incontro a martedì mattina e fissare a calendario il secondo incontro." },
+  { titolo:"Hotel Clinic — posticipare Business Review", cliente:"Hotel Clinic", priorita:1, stato:"Da fare", attendo_da:null, scadenza:null,
+    descrizione:"Chiedere a Denis di posticipare la Business Review." },
+  { titolo:"Bloccare data Incontro Glocal Affi", cliente:"Glocal Affi", priorita:1, stato:"Da fare", attendo_da:null, scadenza:"2026-07-20",
+    descrizione:"Inviare mail a tutti per fissare la data (20 o 24 luglio) con Daniele Marini e Daniele Della Giacoma." },
+  { titolo:"Decidere rinnovo contratti Atoka e Cribis", cliente:"Gestione Interna G&A", priorita:1, stato:"In Attesa", attendo_da:"Cribis / feedback interno", scadenza:null,
+    descrizione:"Marketing Intelligence: attendere l'offerta di Cribis o il feedback interno sull'uso reale da parte del team commerciale rispetto ai costi, per decidere rinnovo/disdetta di Atoka e Cribis." }
+];
+
+const SEED_SINTESI = [
+  { titolo:"Riassetto societario — Scenario 1", cliente:"Gestione Interna G&A", priorita:3,
+    testo:"Discussa la crisi di fiducia e l'ipotesi di scissione in tre entità: G&P (consulenza), Tech Clinique (turismo), G&A Servizi (servizi/building). Nodo principale: la richiesta di Davide del 51% nella consulenza. Sul tavolo patti parasociali, garanzie manageriali e perizia oggettiva sulle quote. La decisione di procedere con lo Scenario 1 resta di fatto nelle mani di Davide." },
+  { titolo:"Nuovo modello di business G&P", cliente:"Gestione Interna G&A", priorita:3,
+    testo:"Il calo dei ricavi ha spinto verso un modello basato su 'interventi verticali' veloci (es. implementazione CRM), al posto delle lunghe analisi classiche. Servono team Senior+Junior, mettendo in discussione il ruolo del Project Manager tradizionale. In ottica pre-sales si sta testando la piattaforma AI 'Strategy Innovation' (proposta da Bagnoli/Castagnetti) per generare check-up strategici automatici." },
+  { titolo:"Smart working, carichi di lavoro e iniziative HR", cliente:"Gestione Interna G&A", priorita:4,
+    testo:"Varato il nuovo regolamento sul full smart working e il lavoro per obiettivi, con vincoli su trasferte, divieto di lavorare all'estero o in spazi pubblici per privacy, e dress code. Il comitato guidato da Serena lavora sui carichi di lavoro e sull'adozione di un gestionale unico (Qlik). Lanciate la survey 'Ascolto del Contesto' sul clima aziendale e il sistema 'Curzi' per incentivare la condivisione del know-how." },
+  { titolo:"Sabatani — crisi GDO e memorandum per futuro AD", cliente:"Sabatani", priorita:2,
+    testo:"L'azienda è in balia delle negoziazioni della GDO; Filippo vive una crisi motivazionale legata al benessere animale. Deciso di costruire un memorandum strategico come se si dovesse istruire un futuro Amministratore Delegato esterno, separando la purpose aziendale dai dilemmi emotivi dei titolari." },
+  { titolo:"Sugar Plus — Piano di Successione Middle Management", cliente:"Sugar Plus (EDF Man)", priorita:2,
+    testo:"Prevista entro 3-5 anni l'uscita dei top manager (tra cui Massimo e Paolo). Il progetto mira a un Piano di Successione per il Middle Management, per proteggere il modello agile aziendale dall'omologazione della multinazionale EDF Man. Si è in attesa del via libera per procedere con la valorizzazione economica." },
+  { titolo:"Ferraroni — driver di acquisto e posizionamento", cliente:"Ferraroni", priorita:2,
+    testo:"Mercato dei mangimi saturo, imprenditore frustrato per la mancanza di elementi differenzianti. Strategia: focus group con la rete vendita per mappare i driver di acquisto degli allevatori e posizionare l'azienda rispetto ai competitor." },
+  { titolo:"Bertani / Metalworking — Planner Agile", cliente:"Bertani / Metalworking", priorita:2,
+    testo:"Giacomo ha sviluppato il 'Planner Agile', un'applicazione web per eliminare l'uso dei fogli Excel nella gestione e schedulazione delle commesse, automatizzando carichi di lavoro e scadenze di produzione. Da qui l'urgenza di avviare l'implementazione del CRM prima della sua partenza, il 29 luglio." },
+  { titolo:"Microgate — follow-up e posizione su R&D interno", cliente:"Microgate", priorita:2,
+    testo:"Follow-up in azienda: Federico Gori ha ribadito che i processi di R&D interni sono già perfetti e non richiedono interventi esterni. Da valutare come procedere con la nuova attività richiesta nonostante questa posizione." },
+  { titolo:"Agenda a breve termine e banche dati aziendali", cliente:"Gestione Interna G&A", priorita:1,
+    testo:"Gestione operativa di appuntamenti a brevissimo termine (Caseificio di Primiero, Hotel Clinic, Glocal Affi) e valutazione dei contratti per le banche dati aziendali (Atoka, Cribis), in attesa di capire l'uso reale da parte del team commerciale rispetto ai costi." }
+];
+
+async function seedIfNeeded(){
+  let alreadySeededTasks = false;
+  try{
+    await storageGet('seed_riepilogo_soci_v1');
+    alreadySeededTasks = true;
+  }catch(e){ /* not seeded yet */ }
+
+  if(!alreadySeededTasks){
+    const now = Date.now();
+    SEED_TASKS.forEach((s, i)=>{
+      tasks.push(Object.assign({
+        id: 't_seed_' + now + '_' + i,
+        completata: false,
+        creata: new Date().toISOString()
+      }, s));
+    });
+    await saveTasks();
+    try{ await storageSet('seed_riepilogo_soci_v1', 'true'); }catch(e){}
+    showToast('Importate ' + SEED_TASKS.length + ' attività dal Riepilogo Soci');
+  }
+
+  let alreadySeededSintesi = false;
+  try{
+    await storageGet('seed_sintesi_riepilogo_soci_v1');
+    alreadySeededSintesi = true;
+  }catch(e){ /* not seeded yet */ }
+
+  if(!alreadySeededSintesi){
+    const now2 = Date.now();
+    SEED_SINTESI.forEach((s, i)=>{
+      sintesi.push(Object.assign({
+        id: 's_seed_' + now2 + '_' + i,
+        creato: new Date().toISOString()
+      }, s));
+    });
+    await saveSintesi();
+    try{ await storageSet('seed_sintesi_riepilogo_soci_v1', 'true'); }catch(e){}
+  }
+}
+
+async function loadState(){
+  try{
+    const r = await storageGet('tasks');
+    tasks = r ? JSON.parse(r.value) : [];
+  }catch(e){ tasks = []; }
+  try{
+    const r = await storageGet('vademecum');
+    vademecum = r ? JSON.parse(r.value) : [];
+  }catch(e){ vademecum = []; }
+  try{
+    const r = await storageGet('sintesi');
+    sintesi = r ? JSON.parse(r.value) : [];
+  }catch(e){ sintesi = []; }
+  try{
+    const r = await storageGet('persone');
+    persone = r ? JSON.parse(r.value) : [];
+  }catch(e){ persone = []; }
+  await seedIfNeeded();
+  renderMatrix();
+  renderVademecum();
+  renderSintesi();
+  renderPersone();
+  renderApiKeyStatus();
+}
+
+async function saveTasks(){
+  try{ await storageSet('tasks', JSON.stringify(tasks)); }
+  catch(e){ showToast('Errore di salvataggio — riprova'); }
+}
+async function saveVademecum(){
+  try{ await storageSet('vademecum', JSON.stringify(vademecum)); }
+  catch(e){ showToast('Errore di salvataggio — riprova'); }
+}
+async function saveSintesi(){
+  try{ await storageSet('sintesi', JSON.stringify(sintesi)); }
+  catch(e){ showToast('Errore di salvataggio — riprova'); }
+}
+async function savePersone(){
+  try{ await storageSet('persone', JSON.stringify(persone)); }
+  catch(e){ showToast('Errore di salvataggio — riprova'); }
+}
+
+
+/* ---------- TABS ---------- */
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('view-'+tab.dataset.view).classList.add('active');
+  });
+});
+document.querySelectorAll('.subtab').forEach(st=>{
+  st.addEventListener('click', ()=>{
+    document.querySelectorAll('.subtab').forEach(s=>s.classList.remove('active'));
+    st.classList.add('active');
+    renderMatrix();
+  });
+});
+
+/* ---------- SPEECH TO TEXT ---------- */
+const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+const micBtn = document.getElementById('micBtn');
+const recordStatus = document.getElementById('recordStatus');
+const transcriptArea = document.getElementById('transcriptArea');
+
+if(SpeechRecognitionAPI){
+  recognition = new SpeechRecognitionAPI();
+  recognition.lang = 'it-IT';
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  recognition.onresult = (event)=>{
+    let finalT = '';
+    for(let i=0;i<event.results.length;i++){
+      finalT += event.results[i][0].transcript;
+    }
+    transcriptArea.value = finalT;
+  };
+  recognition.onerror = (e)=>{
+    recordStatus.textContent = 'Microfono non disponibile — scrivi il testo qui sotto';
+    stopRecording();
+  };
+  recognition.onend = ()=>{ if(recognizing){ stopRecording(); } };
+}else{
+  recordStatus.textContent = 'Riconoscimento vocale non supportato su questo browser — scrivi qui sotto';
+}
+
+function startRecording(){
+  if(!recognition) return;
+  recognizing = true;
+  micBtn.classList.add('recording');
+  recordStatus.textContent = 'In ascolto… premi di nuovo per fermare';
+  try{ recognition.start(); }catch(e){}
+}
+function stopRecording(){
+  recognizing = false;
+  micBtn.classList.remove('recording');
+  recordStatus.textContent = 'Registrazione salvata nel testo qui sotto';
+  try{ recognition.stop(); }catch(e){}
+}
+micBtn.addEventListener('click', ()=>{
+  if(!recognition){ recordStatus.textContent = 'Usa il campo testo qui sotto'; return; }
+  recognizing ? stopRecording() : startRecording();
+});
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  transcriptArea.value = '';
+  recordStatus.textContent = 'Premi e parla — oppure scrivi qui sotto';
+});
+
+/* ---------- AI EXTRACTION ---------- */
+const extractBtn = document.getElementById('extractBtn');
+const extractList = document.getElementById('extractList');
+
+extractBtn.addEventListener('click', async ()=>{
+  const text = transcriptArea.value.trim();
+  if(!text){ showToast('Scrivi o registra prima qualcosa'); return; }
+  extractBtn.disabled = true;
+  extractBtn.innerHTML = '<span class="spinner"></span> Estrazione in corso…';
+
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('it-IT', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+
+  const systemPrompt = `Sei l'assistente AI di LeoBrain, secondo cervello di un Senior Partner di consulenza aziendale.
+Oggi è ${todayStr}. Anno corrente: ${today.getFullYear()}.
+
+Estrai dal testo dettato tutte le attività (task) distinte. Per ciascuna, assegna un livello di priorità da 1 a 5 secondo queste regole fisse:
+- Livello 1: Scadenze a calendario / altissima priorità logistica (impegni con data e ora fissa).
+- Livello 2: Commerciale e Progetti Clienti.
+- Livello 3: Strategia Aziendale (es. ristrutturazione societaria).
+- Livello 4: Operatività G&A e HR (es. carichi di lavoro interni).
+- Livello 5: Studio, Formazione, AI.
+
+Se un'attività dipende dall'azione di un'altra persona (es. "aspetto il via libera da X", "in attesa di Y"), imposta stato = "In Attesa" e compila attendo_da con il nome della persona. Altrimenti stato = "Da fare" e attendo_da = null.
+Se è citata una scadenza (anche relativa, es. "venerdì"), convertila in una data ISO (YYYY-MM-DD) basata sulla data di oggi fornita sopra; altrimenti usa null.
+Se è citato un cliente o progetto, mettilo in cliente; altrimenti usa "Gestione Interna G&A".
+
+Oltre alle task, individua anche i "temi" o argomenti principali trattati nel testo (es. l'andamento di un cliente, una decisione strategica, un aggiornamento di contesto) e produci per ciascuno una breve SINTESI riassuntiva, utile per ricordare in futuro cosa è stato condiviso — anche se non genera un'azione diretta. Cataloga ogni sintesi con lo stesso criterio di priorità (1-5) e lo stesso campo cliente/progetto usato per le task.
+
+Infine, individua eventuali FATTI STABILI su persone o clienti citati (preferenze, caratteristiche, dettagli operativi che restano validi nel tempo, es. "preferisce essere chiamato dopo le 16", "usa SAP", "ha problemi di budget") — non task né sintesi di eventi, ma informazioni di contesto durature da ricordare su quella persona/cliente.
+
+Rispondi SOLO con un oggetto JSON valido, nessun testo prima o dopo, nessun blocco markdown, in questo formato:
+{
+  "task": [ {"titolo": string breve, "descrizione": string, "cliente": string, "scadenza": string|null, "stato": "Da fare"|"In Attesa", "attendo_da": string|null, "priorita": number} ],
+  "sintesi": [ {"titolo": string breve, "cliente": string, "priorita": number, "testo": string riassuntivo} ],
+  "persone": [ {"nome": string, "nota": string breve del fatto stabile individuato} ]
+}
+Se non ci sono task, sintesi o persone individuabili, usa un array vuoto per quel campo.`;
+
+  try{
+    const raw = await callClaude(systemPrompt, text, 1200);
+    const cleaned = raw.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+    const parsed = JSON.parse(cleaned);
+    if(Array.isArray(parsed)){
+      // backward compatibility, in case the model returns a bare array
+      extractedCandidates = parsed;
+      extractedSintesiCandidates = [];
+      extractedPersoneCandidates = [];
+    }else{
+      extractedCandidates = Array.isArray(parsed.task) ? parsed.task : [];
+      extractedSintesiCandidates = Array.isArray(parsed.sintesi) ? parsed.sintesi : [];
+      extractedPersoneCandidates = Array.isArray(parsed.persone) ? parsed.persone : [];
+    }
+    if(extractedCandidates.length === 0 && extractedSintesiCandidates.length === 0 && extractedPersoneCandidates.length === 0){
+      showToast('Nessun contenuto individuato nel testo');
+    }
+    renderExtractCandidates();
+  }catch(e){
+    showToast('Estrazione non riuscita: ' + (e.message || e));
+    console.error(e);
+  }finally{
+    extractBtn.disabled = false;
+    extractBtn.textContent = 'Estrai attività';
+  }
+});
+
+function renderExtractCandidates(){
+  extractList.innerHTML = '';
+  if(extractedCandidates.length === 0 && extractedSintesiCandidates.length === 0 && extractedPersoneCandidates.length === 0) return;
+
+  if(extractedCandidates.length > 0){
+  const header = document.createElement('div');
+  header.className = 'section-title';
+  header.textContent = extractedCandidates.length + ' attività individuate — verifica e conferma';
+  extractList.appendChild(header);
+
+  extractedCandidates.forEach((c, idx)=>{
+    const card = document.createElement('div');
+    card.className = 'extract-card';
+    card.innerHTML = `
+      <div class="row">
+        <input type="text" class="extract-title-input" data-f="titolo" value="${escapeAttr(c.titolo||'')}" style="width:100%">
+      </div>
+      <div class="grid2">
+        <div>
+          <span class="field-label">Cliente / Progetto</span>
+          <input type="text" data-f="cliente" value="${escapeAttr(c.cliente||'Gestione Interna G&A')}" style="width:100%">
+        </div>
+        <div>
+          <span class="field-label">Priorità</span>
+          <select data-f="priorita" style="width:100%">
+            ${[1,2,3,4,5].map(p=>`<option value="${p}" ${Number(c.priorita)===p?'selected':''}>${p} — ${PRIORITY_LABELS[p].split('—')[1].trim()}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <span class="field-label">Stato</span>
+          <select data-f="stato" style="width:100%">
+            <option ${c.stato==='Da fare'?'selected':''}>Da fare</option>
+            <option ${c.stato==='In Attesa'?'selected':''}>In Attesa</option>
+          </select>
+        </div>
+        <div>
+          <span class="field-label">Attendo da</span>
+          <input type="text" data-f="attendo_da" value="${escapeAttr(c.attendo_da||'')}" style="width:100%" placeholder="—">
+        </div>
+      </div>
+      <div>
+        <span class="field-label">Scadenza</span>
+        <input type="date" data-f="scadenza" value="${c.scadenza||''}" style="width:100%;margin-bottom:8px;">
+      </div>
+      <div>
+        <span class="field-label">Note</span>
+        <textarea data-f="descrizione" style="width:100%;min-height:50px;">${escapeAttr(c.descrizione||'')}</textarea>
+      </div>
+      <div class="extract-actions">
+        <button class="btn btn-danger btn-small" data-action="discard">Scarta</button>
+        <button class="btn btn-primary btn-small" data-action="confirm">Conferma e salva</button>
+      </div>
+    `;
+    card.querySelector('[data-action=discard]').addEventListener('click', ()=>{
+      extractedCandidates.splice(idx,1);
+      renderExtractCandidates();
+    });
+    card.querySelector('[data-action=confirm]').addEventListener('click', async ()=>{
+      const fields = {};
+      card.querySelectorAll('[data-f]').forEach(el=>{ fields[el.dataset.f] = el.value; });
+      const newTask = {
+        id: 't_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+        titolo: fields.titolo,
+        descrizione: fields.descrizione,
+        cliente: fields.cliente,
+        scadenza: fields.scadenza || null,
+        stato: fields.stato,
+        attendo_da: fields.attendo_da || null,
+        priorita: Number(fields.priorita),
+        completata: false,
+        creata: new Date().toISOString()
+      };
+      tasks.push(newTask);
+      await saveTasks();
+      extractedCandidates.splice(idx,1);
+      renderExtractCandidates();
+      renderMatrix();
+      showToast('Attività salvata: ' + newTask.titolo);
+    });
+    extractList.appendChild(card);
+  });
+
+  const allBtn = document.createElement('button');
+  allBtn.className = 'btn btn-primary';
+  allBtn.style.marginTop = '4px';
+  allBtn.textContent = 'Conferma tutte';
+  allBtn.addEventListener('click', ()=>{
+    extractList.querySelectorAll('[data-action=confirm]').forEach(b=>b.click());
+  });
+  if(extractedCandidates.length > 1) extractList.appendChild(allBtn);
+  } // end tasks block
+
+  if(extractedSintesiCandidates.length > 0){
+    const sHeader = document.createElement('div');
+    sHeader.className = 'section-title';
+    sHeader.textContent = extractedSintesiCandidates.length + ' sintesi individuate — verifica e conferma';
+    extractList.appendChild(sHeader);
+
+    const sintesiContainer = document.createElement('div');
+    sintesiContainer.id = 'sintesiExtractContainer';
+    extractList.appendChild(sintesiContainer);
+
+    extractedSintesiCandidates.forEach((c, idx)=>{
+      const card = document.createElement('div');
+      card.className = 'extract-card';
+      card.innerHTML = `
+        <div class="row">
+          <input type="text" class="extract-title-input" data-f="titolo" value="${escapeAttr(c.titolo||'')}" style="width:100%">
+        </div>
+        <div class="grid2">
+          <div>
+            <span class="field-label">Cliente / Progetto</span>
+            <input type="text" data-f="cliente" value="${escapeAttr(c.cliente||'Gestione Interna G&A')}" style="width:100%">
+          </div>
+          <div>
+            <span class="field-label">Priorità</span>
+            <select data-f="priorita" style="width:100%">
+              ${[1,2,3,4,5].map(p=>`<option value="${p}" ${Number(c.priorita)===p?'selected':''}>${p} — ${PRIORITY_LABELS[p].split('—')[1].trim()}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div>
+          <span class="field-label">Sintesi</span>
+          <textarea data-f="testo" style="width:100%;min-height:70px;">${escapeAttr(c.testo||'')}</textarea>
+        </div>
+        <div class="extract-actions">
+          <button class="btn btn-danger btn-small" data-action="discard">Scarta</button>
+          <button class="btn btn-primary btn-small" data-action="confirm">Conferma e salva</button>
+        </div>
+      `;
+      card.querySelector('[data-action=discard]').addEventListener('click', ()=>{
+        extractedSintesiCandidates.splice(idx,1);
+        renderExtractCandidates();
+      });
+      card.querySelector('[data-action=confirm]').addEventListener('click', async ()=>{
+        const fields = {};
+        card.querySelectorAll('[data-f]').forEach(el=>{ fields[el.dataset.f] = el.value; });
+        sintesi.push({
+          id: 'sy_' + Date.now() + '_' + Math.floor(Math.random()*1000),
+          titolo: fields.titolo,
+          cliente: fields.cliente,
+          priorita: Number(fields.priorita),
+          testo: fields.testo,
+          creato: new Date().toISOString()
+        });
+        await saveSintesi();
+        extractedSintesiCandidates.splice(idx,1);
+        renderExtractCandidates();
+        renderSintesi();
+        showToast('Sintesi salvata: ' + fields.titolo);
+      });
+      sintesiContainer.appendChild(card);
+    });
+
+    const allSintesiBtn = document.createElement('button');
+    allSintesiBtn.className = 'btn btn-primary';
+    allSintesiBtn.style.marginTop = '4px';
+    allSintesiBtn.textContent = 'Conferma tutte le sintesi';
+    allSintesiBtn.addEventListener('click', ()=>{
+      sintesiContainer.querySelectorAll('[data-action=confirm]').forEach(b=>b.click());
+    });
+    if(extractedSintesiCandidates.length > 1) extractList.appendChild(allSintesiBtn);
+  }
+
+  if(extractedPersoneCandidates.length > 0){
+    const pHeader = document.createElement('div');
+    pHeader.className = 'section-title';
+    pHeader.textContent = extractedPersoneCandidates.length + ' note su persone/clienti individuate — verifica e conferma';
+    extractList.appendChild(pHeader);
+
+    const personeContainer = document.createElement('div');
+    extractList.appendChild(personeContainer);
+
+    extractedPersoneCandidates.forEach((c, idx)=>{
+      const card = document.createElement('div');
+      card.className = 'extract-card';
+      card.innerHTML = `
+        <div class="row">
+          <input type="text" class="extract-title-input" data-f="nome" value="${escapeAttr(c.nome||'')}" style="width:100%">
+        </div>
+        <div>
+          <span class="field-label">Nota</span>
+          <textarea data-f="nota" style="width:100%;min-height:50px;">${escapeAttr(c.nota||'')}</textarea>
+        </div>
+        <div class="extract-actions">
+          <button class="btn btn-danger btn-small" data-action="discard">Scarta</button>
+          <button class="btn btn-primary btn-small" data-action="confirm">Conferma e salva</button>
+        </div>
+      `;
+      card.querySelector('[data-action=discard]').addEventListener('click', ()=>{
+        extractedPersoneCandidates.splice(idx,1);
+        renderExtractCandidates();
+      });
+      card.querySelector('[data-action=confirm]').addEventListener('click', async ()=>{
+        const fields = {};
+        card.querySelectorAll('[data-f]').forEach(el=>{ fields[el.dataset.f] = el.value; });
+        const existing = persone.find(p=>p.nome.toLowerCase()===fields.nome.toLowerCase());
+        if(existing){
+          existing.note = existing.note + '\n' + fields.nota;
+        }else{
+          persone.push({ id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000), nome: fields.nome, note: fields.nota, aggiornato: new Date().toISOString() });
+        }
+        await savePersone();
+        extractedPersoneCandidates.splice(idx,1);
+        renderExtractCandidates();
+        renderPersone();
+        showToast('Scheda aggiornata: ' + fields.nome);
+      });
+      personeContainer.appendChild(card);
+    });
+
+    const allPersoneBtn = document.createElement('button');
+    allPersoneBtn.className = 'btn btn-primary';
+    allPersoneBtn.style.marginTop = '4px';
+    allPersoneBtn.textContent = 'Conferma tutte le note';
+    allPersoneBtn.addEventListener('click', ()=>{
+      personeContainer.querySelectorAll('[data-action=confirm]').forEach(b=>b.click());
+    });
+    if(extractedPersoneCandidates.length > 1) extractList.appendChild(allPersoneBtn);
+  }
+}
+
+function escapeAttr(s){
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+/* ---------- MATRIX / DASHBOARD ---------- */
+function renderMatrix(){
+  const sub = document.querySelector('.subtab.active').dataset.sub;
+  const container = document.getElementById('matrixContent');
+  container.innerHTML = '';
+
+  if(sub === 'carico'){
+    const active = tasks.filter(t=>!t.completata);
+    if(active.length === 0){
+      container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessuna attività</div>Registra il primo scarico mentale nel modulo Imbuto vocale.</div>`;
+      return;
+    }
+    for(let p=1;p<=5;p++){
+      const group = active.filter(t=>t.priorita===p).sort((a,b)=>(a.scadenza||'9999').localeCompare(b.scadenza||'9999'));
+      if(group.length===0) continue;
+      const gEl = document.createElement('div');
+      gEl.className = 'priority-group';
+      gEl.innerHTML = `<div class="priority-head"><span class="stamp p${p}">P${p}</span><h3>${PRIORITY_LABELS[p]}</h3></div>`;
+      group.forEach(t=> gEl.appendChild(taskCard(t)) );
+      container.appendChild(gEl);
+    }
+  } else {
+    const waiting = tasks.filter(t=>!t.completata && t.stato==='In Attesa');
+    if(waiting.length === 0){
+      container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessun collo di bottiglia</div>Tutte le attività dipendono solo da te, al momento.</div>`;
+      return;
+    }
+    const byPerson = {};
+    waiting.forEach(t=>{
+      const key = t.attendo_da || 'Da definire';
+      (byPerson[key] = byPerson[key]||[]).push(t);
+    });
+    Object.keys(byPerson).sort().forEach(person=>{
+      const list = byPerson[person];
+      const g = document.createElement('div');
+      g.className = 'bottleneck-group';
+      g.innerHTML = `<div class="bottleneck-head"><h3>Da ${person}</h3><span class="bottleneck-count">${list.length} attivit${list.length>1?'à':'à'}</span></div>`;
+      list.forEach(t=> g.appendChild(taskCard(t)) );
+      const remWrap = document.createElement('div');
+      remWrap.className = 'reminder-actions';
+      const items = list.map(t=>'• '+t.titolo).join('\n');
+      const msg = `Ciao ${person}, un sollecito rapido su:\n${items}\nGrazie!`;
+      const waBtn = document.createElement('button');
+      waBtn.className = 'btn btn-small';
+      waBtn.textContent = 'Sollecita su WhatsApp';
+      waBtn.addEventListener('click', ()=> window.open('https://wa.me/?text='+encodeURIComponent(msg), '_blank'));
+      const mailBtn = document.createElement('button');
+      mailBtn.className = 'btn btn-small btn-ghost';
+      mailBtn.textContent = 'Sollecita via email';
+      mailBtn.addEventListener('click', ()=> window.open('mailto:?subject='+encodeURIComponent('Sollecito — '+person)+'&body='+encodeURIComponent(msg), '_blank'));
+      remWrap.appendChild(waBtn); remWrap.appendChild(mailBtn);
+      g.appendChild(remWrap);
+      container.appendChild(g);
+    });
+  }
+}
+
+function taskCard(t){
+  const el = document.createElement('div');
+  el.className = 'task-card p'+t.priorita + (t.completata?' done':'');
+  const meta = [];
+  if(t.cliente) meta.push(t.cliente);
+  if(t.scadenza) meta.push('Scad. '+ new Date(t.scadenza+'T00:00:00').toLocaleDateString('it-IT'));
+  if(t.stato==='In Attesa' && t.attendo_da) meta.push('In attesa da '+t.attendo_da);
+  el.innerHTML = `
+    <div class="task-main">
+      <div class="task-title ${t.completata?'done':''}">${escapeAttr(t.titolo)}</div>
+      <div class="task-meta">${meta.map(m=>`<span>${escapeAttr(m)}</span>`).join('')}</div>
+      ${t.descrizione ? `<div class="task-desc">${escapeAttr(t.descrizione)}</div>` : ''}
+    </div>
+    <div class="task-actions">
+      <button class="icon-btn" data-act="done" title="Segna completata">${t.completata? '↺' : '✓'}</button>
+      <button class="icon-btn" data-act="del" title="Elimina">✕</button>
+    </div>
+  `;
+  el.querySelector('[data-act=done]').addEventListener('click', async ()=>{
+    t.completata = !t.completata;
+    await saveTasks();
+    renderMatrix();
+  });
+  el.querySelector('[data-act=del]').addEventListener('click', async ()=>{
+    tasks = tasks.filter(x=>x.id!==t.id);
+    await saveTasks();
+    renderMatrix();
+  });
+  return el;
+}
+
+/* ---------- VADEMECUM ---------- */
+const addVadToggle = document.getElementById('addVadToggle');
+const addVadForm = document.getElementById('addVadForm');
+addVadToggle.addEventListener('click', ()=>{
+  addVadForm.style.display = addVadForm.style.display==='none' ? 'block' : 'none';
+});
+document.getElementById('cancelVadBtn').addEventListener('click', ()=>{
+  addVadForm.style.display = 'none';
+});
+document.getElementById('saveVadBtn').addEventListener('click', async ()=>{
+  const titolo = document.getElementById('vadTitle').value.trim();
+  const tipologia = document.getElementById('vadType').value;
+  const testo = document.getElementById('vadText').value.trim();
+  if(!titolo || !testo){ showToast('Compila titolo e testo'); return; }
+  vademecum.push({
+    id: 'v_'+Date.now(),
+    titolo, tipologia, testo,
+    creato: new Date().toISOString()
+  });
+  await saveVademecum();
+  document.getElementById('vadTitle').value='';
+  document.getElementById('vadText').value='';
+  addVadForm.style.display='none';
+  renderVademecum();
+  showToast('Aggiunto al Vademecum');
+});
+
+document.getElementById('vadSearch').addEventListener('input', renderVademecum);
+
+function renderVademecum(){
+  const q = document.getElementById('vadSearch').value.trim().toLowerCase();
+  const list = document.getElementById('vadList');
+  list.innerHTML = '';
+  const filtered = vademecum.filter(v=> !q || v.titolo.toLowerCase().includes(q) || v.testo.toLowerCase().includes(q) || v.tipologia.toLowerCase().includes(q));
+  if(filtered.length===0){
+    list.innerHTML = `<div class="empty-state"><div class="eyebrow">Archivio vuoto</div>Aggiungi il primo framework, memorandum o assessment.</div>`;
+    return;
+  }
+  filtered.slice().reverse().forEach(v=>{
+    const card = document.createElement('div');
+    card.className = 'vad-card';
+    card.innerHTML = `
+      <div class="vad-top"><span class="vad-title">${escapeAttr(v.titolo)}</span><span class="vad-type">${escapeAttr(v.tipologia)}</span></div>
+      <div class="vad-preview">${escapeAttr(v.testo)}</div>
+      <div class="vad-full">${escapeAttr(v.testo)}</div>
+    `;
+    card.addEventListener('click', ()=> card.classList.toggle('open'));
+    list.appendChild(card);
+  });
+}
+
+/* ---------- SINTESI & CONTENUTI ---------- */
+const addSintesiToggle = document.getElementById('addSintesiToggle');
+const addSintesiForm = document.getElementById('addSintesiForm');
+addSintesiToggle.addEventListener('click', ()=>{
+  addSintesiForm.style.display = addSintesiForm.style.display==='none' ? 'block' : 'none';
+});
+document.getElementById('cancelSintesiBtn').addEventListener('click', ()=>{
+  addSintesiForm.style.display = 'none';
+});
+document.getElementById('saveSintesiBtn').addEventListener('click', async ()=>{
+  const titolo = document.getElementById('sintesiTitolo').value.trim();
+  const cliente = document.getElementById('sintesiCliente').value.trim() || 'Gestione Interna G&A';
+  const priorita = Number(document.getElementById('sintesiPriorita').value);
+  const testo = document.getElementById('sintesiTesto').value.trim();
+  if(!titolo || !testo){ showToast('Compila titolo e testo'); return; }
+  sintesi.push({
+    id: 'sy_'+Date.now(),
+    titolo, cliente, priorita, testo,
+    creato: new Date().toISOString()
+  });
+  await saveSintesi();
+  document.getElementById('sintesiTitolo').value='';
+  document.getElementById('sintesiCliente').value='';
+  document.getElementById('sintesiTesto').value='';
+  addSintesiForm.style.display='none';
+  renderSintesi();
+  showToast('Sintesi salvata');
+});
+document.getElementById('sintesiSearch').addEventListener('input', renderSintesi);
+
+let openSintesiIds = new Set();
+let writingApprofondimentoIds = new Set();
+
+function renderSintesi(){
+  const q = document.getElementById('sintesiSearch').value.trim().toLowerCase();
+  const container = document.getElementById('sintesiContent');
+  container.innerHTML = '';
+  const filtered = sintesi.filter(s => !q || s.titolo.toLowerCase().includes(q) || s.testo.toLowerCase().includes(q) || (s.cliente||'').toLowerCase().includes(q));
+  if(filtered.length===0){
+    container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessuna sintesi</div>Registra uno scarico mentale nell'Imbuto vocale, oppure aggiungine una manualmente.</div>`;
+    return;
+  }
+  for(let p=1;p<=5;p++){
+    const group = filtered.filter(s=>s.priorita===p).sort((a,b)=>(b.creato||'').localeCompare(a.creato||''));
+    if(group.length===0) continue;
+    const gEl = document.createElement('div');
+    gEl.className = 'priority-group';
+    gEl.innerHTML = `<div class="priority-head"><span class="stamp p${p}">P${p}</span><h3>${PRIORITY_LABELS[p]}</h3></div>`;
+    group.forEach(s=>{
+      const isOpen = openSintesiIds.has(s.id);
+      const isWriting = writingApprofondimentoIds.has(s.id);
+      const card = document.createElement('div');
+      card.className = 'sintesi-card p'+p + (isOpen ? ' open' : '');
+      card.innerHTML = `
+        <div class="sintesi-top">
+          <span class="sintesi-title">${escapeAttr(s.titolo)}</span>
+          <span class="sintesi-client">${escapeAttr(s.cliente||'')}</span>
+        </div>
+        <div class="sintesi-preview">${escapeAttr(s.testo)}</div>
+        <div class="sintesi-full">
+          ${escapeAttr(s.testo)}
+          <div class="approfondimento-block" id="approf-${s.id}"></div>
+        </div>
+        <div class="sintesi-actions"><button class="icon-btn" data-act="del" title="Elimina">✕</button></div>
+      `;
+      card.addEventListener('click', (e)=>{
+        if(e.target.closest('button') || e.target.closest('textarea')) return;
+        const nowOpen = card.classList.toggle('open');
+        if(nowOpen) openSintesiIds.add(s.id); else openSintesiIds.delete(s.id);
+      });
+      card.querySelector('[data-act=del]').addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        sintesi = sintesi.filter(x=>x.id!==s.id);
+        await saveSintesi();
+        renderSintesi();
+      });
+      renderApprofondimentoBlock(card.querySelector('#approf-'+s.id), s, isWriting);
+      gEl.appendChild(card);
+    });
+    container.appendChild(gEl);
+  }
+}
+
+function renderApprofondimentoBlock(el, s, isWriting){
+  if(s.approfondimento && !isWriting){
+    el.innerHTML = `
+      <div class="approf-divider"></div>
+      <div class="approf-label">Approfondimento</div>
+      <div class="approf-text">${escapeAttr(s.approfondimento)}</div>
+      <div class="approf-actions">
+        <button class="btn btn-small btn-ghost" data-act="edit-approf">Modifica</button>
+        <button class="btn btn-small btn-ghost" data-act="regen-approf">Rigenera con AI</button>
+      </div>
+    `;
+    el.querySelector('[data-act=edit-approf]').addEventListener('click', ()=>{
+      writingApprofondimentoIds.add(s.id);
+      renderApprofondimentoBlock(el, s, true);
+    });
+    el.querySelector('[data-act=regen-approf]').addEventListener('click', ()=> generateApprofondimento(el, s));
+  }else if(isWriting){
+    el.innerHTML = `
+      <div class="approf-divider"></div>
+      <div class="approf-label">Approfondimento</div>
+      <textarea class="approf-textarea" placeholder="Scrivi qui l'approfondimento — contesto, retroscena, dettagli della conversazione…">${escapeAttr(s.approfondimento||'')}</textarea>
+      <div class="approf-actions">
+        <button class="btn btn-small btn-ghost" data-act="cancel-approf">Annulla</button>
+        <button class="btn btn-small btn-primary" data-act="save-approf">Salva</button>
+      </div>
+    `;
+    el.querySelector('[data-act=cancel-approf]').addEventListener('click', ()=>{
+      writingApprofondimentoIds.delete(s.id);
+      renderApprofondimentoBlock(el, s, false);
+    });
+    el.querySelector('[data-act=save-approf]').addEventListener('click', async ()=>{
+      const val = el.querySelector('.approf-textarea').value.trim();
+      s.approfondimento = val || null;
+      await saveSintesi();
+      writingApprofondimentoIds.delete(s.id);
+      renderApprofondimentoBlock(el, s, false);
+      showToast('Approfondimento salvato');
+    });
+  }else{
+    el.innerHTML = `
+      <div class="approf-divider"></div>
+      <div class="approf-actions">
+        <button class="btn btn-small" data-act="gen-approf">Genera approfondimento con AI</button>
+        <button class="btn btn-small btn-ghost" data-act="write-approf">Scrivi manualmente</button>
+      </div>
+    `;
+    el.querySelector('[data-act=gen-approf]').addEventListener('click', ()=> generateApprofondimento(el, s));
+    el.querySelector('[data-act=write-approf]').addEventListener('click', ()=>{
+      writingApprofondimentoIds.add(s.id);
+      renderApprofondimentoBlock(el, s, true);
+    });
+  }
+}
+
+async function generateApprofondimento(el, s){
+  el.innerHTML = `<div class="approf-divider"></div><div class="approf-loading"><span class="spinner"></span> Genero l'approfondimento…</div>`;
+  const relatedTasks = tasks.filter(t => (t.cliente||'').toLowerCase() === (s.cliente||'').toLowerCase());
+  const taskContext = relatedTasks.length
+    ? 'Task collegate note nel sistema:\n' + relatedTasks.map(t=>`- [${t.stato}] ${t.titolo}${t.attendo_da ? ' (in attesa da '+t.attendo_da+')' : ''}`).join('\n')
+    : '';
+  try{
+    const text = await callClaude(
+      `Sei l'assistente di LeoBrain, secondo cervello di un Senior Partner di consulenza aziendale. Ricevi il titolo e la sintesi breve di un tema trattato con un cliente o su un progetto interno. Scrivi un approfondimento strutturato in italiano, in tono professionale e diretto, che aiuti il partner a ricordare rapidamente il quadro completo. Usa questi paragrafi brevi, senza intestazioni markdown: 1) Contesto — perché il tema è emerso; 2) Punti chiave — cosa è stato discusso o deciso; 3) Implicazioni — cosa comporta per il cliente/progetto; 4) Punti aperti — cosa resta da chiarire o decidere. Resta fedele solo a quanto fornito, senza inventare fatti specifici non deducibili dal contesto; se un punto non è deducibile, scrivi che resta da approfondire. Massimo 180 parole.`,
+      `Titolo: ${s.titolo}\nCliente/Progetto: ${s.cliente}\nSintesi: ${s.testo}\n${taskContext}`,
+      1000
+    );
+    s.approfondimento = text;
+    await saveSintesi();
+    renderApprofondimentoBlock(el, s, false);
+    showToast('Approfondimento generato');
+  }catch(e){
+    console.error('generateApprofondimento error:', e);
+    el.innerHTML = `<div class="approf-divider"></div><div class="approf-loading">Generazione non riuscita: ${escapeAttr(e.message || String(e))}</div>
+      <div class="approf-actions"><button class="btn btn-small" data-act="retry-approf">Riprova</button></div>`;
+    el.querySelector('[data-act=retry-approf]').addEventListener('click', ()=> generateApprofondimento(el, s));
+  }
+}
+
+/* ---------- ASK ARCHIVE (Vademecum only, RAG-lite) ---------- */
+document.getElementById('askBtn').addEventListener('click', async ()=>{
+  const q = document.getElementById('askInput').value.trim();
+  const answerEl = document.getElementById('askAnswer');
+  if(!q){ showToast('Scrivi una domanda'); return; }
+  if(vademecum.length===0){
+    answerEl.innerHTML = `<div class="ask-answer"><div class="eyebrow">Archivio vuoto</div>Non ci sono ancora documenti nel Vademecum da consultare.</div>`;
+    return;
+  }
+  answerEl.innerHTML = `<div class="ask-answer"><span class="spinner"></span> Consultazione dell'archivio…</div>`;
+  const context = vademecum.map(v=>`### ${v.titolo} [${v.tipologia}]\n${v.testo}`).join('\n\n---\n\n').slice(0, 60000);
+  try{
+    const text = await callClaude(
+      `Sei l'archivio metodologico "Vademecum" di un consulente senior. Rispondi alla domanda basandoti ESCLUSIVAMENTE sui documenti forniti. Se l'informazione non è presente, dillo chiaramente. Rispondi in italiano, in modo diretto e conciso.\n\nDOCUMENTI:\n${context}`,
+      q, 1000
+    );
+    answerEl.innerHTML = `<div class="ask-answer"><div class="eyebrow">Risposta</div>${escapeAttr(text)}</div>`;
+  }catch(e){
+    answerEl.innerHTML = `<div class="ask-answer">Errore: ${escapeAttr(e.message||String(e))}</div>`;
+  }
+});
+
+/* ---------- GLOBAL ASK (across tasks + sintesi + vademecum + persone) ---------- */
+document.getElementById('globalAskBtn').addEventListener('click', async ()=>{
+  const q = document.getElementById('globalAskInput').value.trim();
+  const answerEl = document.getElementById('globalAskAnswer');
+  if(!q){ showToast('Scrivi una domanda'); return; }
+  const hasData = tasks.length || sintesi.length || vademecum.length || persone.length;
+  if(!hasData){
+    answerEl.innerHTML = `<div class="ask-answer"><div class="eyebrow">Nessun dato</div>Non c'è ancora nulla da consultare — inizia registrando qualcosa nell'Imbuto vocale.</div>`;
+    return;
+  }
+  answerEl.innerHTML = `<div class="ask-answer"><span class="spinner"></span> Consultazione di tutto l'archivio…</div>`;
+
+  const taskCtx = tasks.map(t=>`- [${t.stato}] ${t.titolo} (${t.cliente}${t.attendo_da ? ', in attesa da '+t.attendo_da : ''}${t.scadenza ? ', scad. '+t.scadenza : ''})`).join('\n');
+  const sintesiCtx = sintesi.map(s=>`### ${s.titolo} [${s.cliente}]\n${s.testo}${s.approfondimento ? '\nApprofondimento: '+s.approfondimento : ''}`).join('\n\n');
+  const vadCtx = vademecum.map(v=>`### ${v.titolo} [${v.tipologia}]\n${v.testo}`).join('\n\n');
+  const personeCtx = persone.map(p=>`### ${p.nome}\n${p.note}`).join('\n\n');
+  const fullContext = `TASK:\n${taskCtx}\n\nSINTESI:\n${sintesiCtx}\n\nVADEMECUM:\n${vadCtx}\n\nPERSONE/CLIENTI:\n${personeCtx}`.slice(0, 80000);
+
+  try{
+    const text = await callClaude(
+      `Sei LeoBrain, il secondo cervello di un Senior Partner di consulenza. Rispondi alla domanda basandoti ESCLUSIVAMENTE sui dati forniti (task, sintesi, vademecum, schede persone/clienti). Se l'informazione non è presente, dillo chiaramente. Rispondi in italiano, diretto e conciso.\n\nDATI:\n${fullContext}`,
+      q, 1000
+    );
+    answerEl.innerHTML = `<div class="ask-answer"><div class="eyebrow">Risposta</div>${escapeAttr(text)}</div>`;
+  }catch(e){
+    answerEl.innerHTML = `<div class="ask-answer">Errore: ${escapeAttr(e.message||String(e))}</div>`;
+  }
+});
+
+/* ---------- PERSONE & CLIENTI ---------- */
+const addPersonaToggle = document.getElementById('addPersonaToggle');
+const addPersonaForm = document.getElementById('addPersonaForm');
+addPersonaToggle.addEventListener('click', ()=>{
+  addPersonaForm.style.display = addPersonaForm.style.display==='none' ? 'block' : 'none';
+});
+document.getElementById('cancelPersonaBtn').addEventListener('click', ()=>{
+  addPersonaForm.style.display = 'none';
+});
+document.getElementById('savePersonaBtn').addEventListener('click', async ()=>{
+  const nome = document.getElementById('personaNome').value.trim();
+  const nota = document.getElementById('personaNote').value.trim();
+  if(!nome || !nota){ showToast('Compila nome e note'); return; }
+  const existing = persone.find(p=>p.nome.toLowerCase()===nome.toLowerCase());
+  if(existing){
+    existing.note = existing.note + '\n' + nota;
+  }else{
+    persone.push({ id:'p_'+Date.now(), nome, note: nota, aggiornato: new Date().toISOString() });
+  }
+  await savePersone();
+  document.getElementById('personaNome').value='';
+  document.getElementById('personaNote').value='';
+  addPersonaForm.style.display='none';
+  renderPersone();
+  showToast('Scheda salvata');
+});
+document.getElementById('personeSearch').addEventListener('input', renderPersone);
+
+function renderPersone(){
+  const q = document.getElementById('personeSearch').value.trim().toLowerCase();
+  const container = document.getElementById('personeContent');
+  container.innerHTML = '';
+  const filtered = persone.filter(p=> !q || p.nome.toLowerCase().includes(q) || p.note.toLowerCase().includes(q));
+  if(filtered.length===0){
+    container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessuna scheda</div>Le schede persona si creano anche in automatico dai tuoi scarichi vocali, oppure aggiungine una manualmente.</div>`;
+    return;
+  }
+  filtered.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(p=>{
+    const card = document.createElement('div');
+    card.className = 'vad-card';
+    card.innerHTML = `
+      <div class="vad-top"><span class="vad-title">${escapeAttr(p.nome)}</span></div>
+      <div class="vad-preview">${escapeAttr(p.note)}</div>
+      <div class="vad-full">${escapeAttr(p.note)}</div>
+    `;
+    card.addEventListener('click', ()=> card.classList.toggle('open'));
+    container.appendChild(card);
+  });
+}
+
+/* ---------- SETTINGS ---------- */
+function renderApiKeyStatus(){
+  const statusEl = document.getElementById('apiKeyStatus');
+  const key = getApiKey();
+  if(key){
+    statusEl.innerHTML = `<span style="color:var(--ok);">● Chiave impostata (termina in …${escapeAttr(key.slice(-4))})</span>`;
+    document.getElementById('apiKeyInput').placeholder = 'Chiave già salvata — inseriscine una nuova per sostituirla';
+  }else{
+    statusEl.innerHTML = `<span style="color:var(--red);">● Nessuna chiave impostata — le funzioni AI non funzioneranno</span>`;
+  }
+}
+document.getElementById('saveApiKeyBtn').addEventListener('click', ()=>{
+  const val = document.getElementById('apiKeyInput').value.trim();
+  if(!val){ showToast('Incolla la tua chiave API'); return; }
+  setApiKey(val);
+  document.getElementById('apiKeyInput').value = '';
+  renderApiKeyStatus();
+  showToast('Chiave salvata su questo dispositivo');
+});
+document.getElementById('exportDataBtn').addEventListener('click', ()=>{
+  const backup = { tasks, vademecum, sintesi, persone, esportato: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'leobrain-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+/* ---------- INIT ---------- */
+loadState();
+</script>
+</body>
+</html>
