@@ -774,44 +774,62 @@ const micBtn = document.getElementById('micBtn');
 const recordStatus = document.getElementById('recordStatus');
 const transcriptArea = document.getElementById('transcriptArea');
 
-if(SpeechRecognitionAPI){
-  recognition = new SpeechRecognitionAPI();
-  recognition.lang = 'it-IT';
-  recognition.continuous = true;
-  recognition.interimResults = true;
+if(!SpeechRecognitionAPI){
+  recordStatus.textContent = 'Riconoscimento vocale non supportato su questo browser — scrivi qui sotto';
+}
 
-  recognition.onresult = (event)=>{
+function buildRecognition(){
+  const r = new SpeechRecognitionAPI();
+  r.lang = 'it-IT';
+  r.continuous = true;
+  r.interimResults = true;
+  r.onresult = (event)=>{
     let finalT = '';
     for(let i=0;i<event.results.length;i++){
       finalT += event.results[i][0].transcript;
     }
     transcriptArea.value = finalT;
   };
-  recognition.onerror = (e)=>{
+  r.onerror = ()=>{
+    recognizing = false;
+    micBtn.classList.remove('recording');
     recordStatus.textContent = 'Microfono non disponibile — scrivi il testo qui sotto';
-    stopRecording();
   };
-  recognition.onend = ()=>{ if(recognizing){ stopRecording(); } };
-}else{
-  recordStatus.textContent = 'Riconoscimento vocale non supportato su questo browser — scrivi qui sotto';
+  r.onend = ()=>{
+    recognizing = false;
+    micBtn.classList.remove('recording');
+    recordStatus.textContent = 'Registrazione salvata nel testo qui sotto';
+  };
+  return r;
 }
 
-function startRecording(){
-  if(!recognition) return;
-  recognizing = true;
-  micBtn.classList.add('recording');
-  recordStatus.textContent = 'In ascolto… premi di nuovo per fermare';
-  try{ recognition.start(); }catch(e){}
-}
-function stopRecording(){
-  recognizing = false;
-  micBtn.classList.remove('recording');
-  recordStatus.textContent = 'Registrazione salvata nel testo qui sotto';
-  try{ recognition.stop(); }catch(e){}
-}
 micBtn.addEventListener('click', ()=>{
-  if(!recognition){ recordStatus.textContent = 'Usa il campo testo qui sotto'; return; }
-  recognizing ? stopRecording() : startRecording();
+  if(!SpeechRecognitionAPI){ recordStatus.textContent = 'Usa il campo testo qui sotto'; return; }
+
+  if(recognizing){
+    // Force-stop: update UI immediately, then hard-abort the engine.
+    recognizing = false;
+    micBtn.classList.remove('recording');
+    recordStatus.textContent = 'Registrazione salvata nel testo qui sotto';
+    if(recognition){
+      try{ recognition.abort(); }catch(e){}
+      try{ recognition.onend = null; recognition.onerror = null; recognition.onresult = null; }catch(e){}
+    }
+    recognition = null;
+    return;
+  }
+
+  // Always start from a brand-new instance to avoid stuck internal state.
+  recognition = buildRecognition();
+  try{
+    recognition.start();
+    recognizing = true;
+    micBtn.classList.add('recording');
+    recordStatus.textContent = 'In ascolto… tocca di nuovo per fermare';
+  }catch(e){
+    recordStatus.textContent = 'Errore di avvio microfono — riprova';
+    recognition = null;
+  }
 });
 
 document.getElementById('clearBtn').addEventListener('click', ()=>{
