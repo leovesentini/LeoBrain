@@ -605,6 +605,67 @@ function setApiKey(key){
 
 const AI_MODEL = 'claude-haiku-4-5-20251001';
 
+/* Tolerant JSON parser: if the AI response got cut off mid-way (truncation,
+   network hiccup, etc.), salvage everything complete instead of failing outright. */
+function sanitizeJsonControlChars(str){
+  let out = '', inString = false, escape = false;
+  for(let i=0;i<str.length;i++){
+    const ch = str[i];
+    if(inString){
+      if(escape){ out += ch; escape = false; continue; }
+      if(ch === '\\'){ out += ch; escape = true; continue; }
+      if(ch === '"'){ inString = false; out += ch; continue; }
+      if(ch === '\n'){ out += '\\n'; continue; }
+      if(ch === '\r'){ continue; }
+      if(ch === '\t'){ out += '\\t'; continue; }
+      out += ch;
+      continue;
+    }
+    if(ch === '"'){ inString = true; }
+    out += ch;
+  }
+  return out;
+}
+
+function parseJsonLoose(str){
+  str = sanitizeJsonControlChars(str);
+  try{ return JSON.parse(str); }catch(e){ /* fall through to repair */ }
+
+  function scan(s){
+    let stack = [], inString = false, escape = false, lastSafeIndex = -1;
+    for(let i=0;i<s.length;i++){
+      const ch = s[i];
+      if(inString){
+        if(escape){ escape = false; }
+        else if(ch === '\\'){ escape = true; }
+        else if(ch === '"'){ inString = false; }
+        continue;
+      }
+      if(ch === '"'){ inString = true; continue; }
+      if(ch === '{' || ch === '['){ stack.push(ch); continue; }
+      if(ch === '}' || ch === ']'){ stack.pop(); continue; }
+      if(ch === ',' ){ lastSafeIndex = i; }
+    }
+    return { stack, inString, lastSafeIndex };
+  }
+
+  let working = str;
+  let state = scan(working);
+  if(state.inString){
+    if(state.lastSafeIndex === -1){
+      throw new Error('Risposta interrotta troppo presto per essere recuperata — riprova');
+    }
+    working = working.slice(0, state.lastSafeIndex);
+    state = scan(working);
+  }
+  let repaired = working.replace(/,\s*$/, '');
+  if(state.inString) repaired += '"';
+  for(let i=state.stack.length-1;i>=0;i--){
+    repaired += state.stack[i] === '{' ? '}' : ']';
+  }
+  return JSON.parse(repaired);
+}
+
 async function callClaude(system, userContent, maxTokens){
   const apiKey = getApiKey();
   if(!apiKey){
@@ -904,7 +965,7 @@ Oltre alle task, individua anche i "temi" o argomenti principali trattati nel te
 
 Infine, individua eventuali FATTI STABILI su persone o clienti citati (preferenze, caratteristiche, dettagli operativi che restano validi nel tempo, es. "preferisce essere chiamato dopo le 16", "usa SAP", "ha problemi di budget") — non task né sintesi di eventi, ma informazioni di contesto durature da ricordare su quella persona/cliente.
 
-Rispondi SOLO con un oggetto JSON valido, nessun testo prima o dopo, nessun blocco markdown, in questo formato:
+Rispondi SOLO con un oggetto JSON valido, su un'unica struttura compatta, senza a capo letterali dentro i valori delle stringhe (se serve andare a capo nel testo, usa uno spazio), nessun testo prima o dopo, nessun blocco markdown, in questo formato:
 {
   "task": [ {"titolo": string breve, "descrizione": string, "cliente": string, "scadenza": string|null, "stato": "Da fare"|"In Attesa", "attendo_da": string|null, "priorita": number} ],
   "sintesi": [ {"titolo": string breve, "cliente": string, "priorita": number, "testo": string riassuntivo} ],
@@ -915,7 +976,7 @@ Se non ci sono task, sintesi o persone individuabili, usa un array vuoto per que
   try{
     const raw = await callClaude(systemPrompt, text, 4000);
     const cleaned = raw.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-    const parsed = JSON.parse(cleaned);
+    const parsed = parseJsonLoose(cleaned);
     if(Array.isArray(parsed)){
       // backward compatibility, in case the model returns a bare array
       extractedCandidates = parsed;
