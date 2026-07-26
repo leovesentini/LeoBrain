@@ -913,7 +913,7 @@ Rispondi SOLO con un oggetto JSON valido, nessun testo prima o dopo, nessun bloc
 Se non ci sono task, sintesi o persone individuabili, usa un array vuoto per quel campo.`;
 
   try{
-    const raw = await callClaude(systemPrompt, text, 1200);
+    const raw = await callClaude(systemPrompt, text, 4000);
     const cleaned = raw.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
     const parsed = JSON.parse(cleaned);
     if(Array.isArray(parsed)){
