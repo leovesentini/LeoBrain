@@ -973,8 +973,10 @@ Rispondi SOLO con un oggetto JSON valido, su un'unica struttura compatta, senza 
 }
 Se non ci sono task, sintesi o persone individuabili, usa un array vuoto per quel campo.`;
 
+  let rawDebug = '';
   try{
     const raw = await callClaude(systemPrompt, text, 4000);
+    rawDebug = raw;
     const cleaned = raw.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
     const parsed = parseJsonLoose(cleaned);
     if(Array.isArray(parsed)){
@@ -993,7 +995,8 @@ Se non ci sono task, sintesi o persone individuabili, usa un array vuoto per que
     renderExtractCandidates();
   }catch(e){
     showToast('Estrazione non riuscita: ' + (e.message || e));
-    console.error(e);
+    console.error(e, rawDebug);
+    extractList.innerHTML = `<div class="approf-loading" style="white-space:pre-wrap;user-select:text;border:1px solid var(--red);border-radius:6px;padding:12px;">DEBUG — risposta grezza dell'AI (${rawDebug.length} caratteri):\n\n${escapeAttr(rawDebug)}</div>`;
   }finally{
     extractBtn.disabled = false;
     extractBtn.textContent = 'Estrai attività';
