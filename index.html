@@ -344,6 +344,8 @@
   .plaud-item-preview{font-size:12.5px;color:var(--paper-dim);margin-bottom:8px;
     overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
   .plaud-item-meta{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--brass);margin-bottom:6px;}
+  .task-card{flex-wrap:wrap;}
+  .task-edit-form{width:100%;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);}
 
   .spinner{
     width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--brass);
@@ -1302,10 +1304,60 @@ function taskCard(t){
       ${t.descrizione ? `<div class="task-desc">${escapeAttr(t.descrizione)}</div>` : ''}
     </div>
     <div class="task-actions">
+      <button class="icon-btn" data-act="edit" title="Modifica">✎</button>
       <button class="icon-btn" data-act="done" title="Segna completata">${t.completata? '↺' : '✓'}</button>
       <button class="icon-btn" data-act="del" title="Elimina">✕</button>
     </div>
   `;
+  el.querySelector('[data-act=edit]').addEventListener('click', ()=>{
+    if(el.querySelector('.task-edit-form')){ el.querySelector('.task-edit-form').remove(); return; }
+    const form = document.createElement('div');
+    form.className = 'task-edit-form';
+    form.innerHTML = `
+      <div class="grid2">
+        <div>
+          <span class="field-label">Cliente / Progetto</span>
+          <input type="text" data-f="cliente" value="${escapeAttr(t.cliente||'')}" style="width:100%">
+        </div>
+        <div>
+          <span class="field-label">Priorità</span>
+          <select data-f="priorita" style="width:100%">
+            ${[1,2,3,4,5].map(p=>`<option value="${p}" ${t.priorita===p?'selected':''}>${p} — ${PRIORITY_LABELS[p].split('—')[1].trim()}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <span class="field-label">Stato</span>
+          <select data-f="stato" style="width:100%">
+            <option ${t.stato==='Da fare'?'selected':''}>Da fare</option>
+            <option ${t.stato==='In Attesa'?'selected':''}>In Attesa</option>
+          </select>
+        </div>
+        <div>
+          <span class="field-label">Attendo da</span>
+          <input type="text" data-f="attendo_da" value="${escapeAttr(t.attendo_da||'')}" style="width:100%" placeholder="—">
+        </div>
+      </div>
+      <div>
+        <span class="field-label">Scadenza</span>
+        <input type="date" data-f="scadenza" value="${t.scadenza||''}" style="width:100%;margin-bottom:8px;">
+      </div>
+      <div class="extract-actions">
+        <button class="btn btn-primary btn-small" data-act="save-edit">Salva modifiche</button>
+      </div>
+    `;
+    el.appendChild(form);
+    form.querySelector('[data-act=save-edit]').addEventListener('click', async ()=>{
+      form.querySelectorAll('[data-f]').forEach(input=>{
+        const val = input.value;
+        t[input.dataset.f] = input.dataset.f === 'priorita' ? Number(val) : (val || null);
+      });
+      await saveTasks();
+      renderMatrix();
+      showToast('Task aggiornata');
+    });
+  });
   el.querySelector('[data-act=done]').addEventListener('click', async ()=>{
     t.completata = !t.completata;
     await saveTasks();
