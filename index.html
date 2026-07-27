@@ -420,6 +420,7 @@
     <div class="subtabs">
       <button class="subtab active" data-sub="carico">A mio carico</button>
       <button class="subtab" data-sub="attesa">Colli di bottiglia</button>
+      <button class="subtab" data-sub="completate">Completate</button>
     </div>
     <div id="matrixContent"></div>
   </div>
@@ -1254,7 +1255,7 @@ function renderMatrix(){
       group.forEach(t=> gEl.appendChild(taskCard(t)) );
       container.appendChild(gEl);
     }
-  } else {
+  } else if(sub === 'attesa'){
     const waiting = tasks.filter(t=>!t.completata && t.stato==='In Attesa');
     if(waiting.length === 0){
       container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessun collo di bottiglia</div>Tutte le attività dipendono solo da te, al momento.</div>`;
@@ -1287,6 +1288,25 @@ function renderMatrix(){
       g.appendChild(remWrap);
       container.appendChild(g);
     });
+  } else if(sub === 'completate'){
+    const done = tasks.filter(t=>t.completata).sort((a,b)=>(b.creata||'').localeCompare(a.creata||''));
+    if(done.length === 0){
+      container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessuna task completata</div>Le attività che segni come completate compariranno qui.</div>`;
+      return;
+    }
+    const note = document.createElement('div');
+    note.style.cssText = 'font-size:12.5px;color:var(--paper-dim);margin-bottom:16px;';
+    note.textContent = 'Tocca ↺ su una task per riportarla attiva, oppure ✕ per eliminarla definitivamente.';
+    container.appendChild(note);
+    for(let p=1;p<=5;p++){
+      const group = done.filter(t=>t.priorita===p);
+      if(group.length===0) continue;
+      const gEl = document.createElement('div');
+      gEl.className = 'priority-group';
+      gEl.innerHTML = `<div class="priority-head"><span class="stamp p${p}">P${p}</span><h3>${PRIORITY_LABELS[p]}</h3></div>`;
+      group.forEach(t=> gEl.appendChild(taskCard(t)) );
+      container.appendChild(gEl);
+    }
   }
 }
 
