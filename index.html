@@ -205,11 +205,21 @@
     border-radius:6px;padding:12px 14px;margin-bottom:8px;
     display:flex;justify-content:space-between;gap:12px;align-items:flex-start;
   }
-  .task-card.p1{border-left-color:var(--red);}
-  .task-card.p2{border-left-color:var(--brass);}
-  .task-card.p3{border-left-color:var(--slate);}
-  .task-card.p4{border-left-color:var(--teal);}
-  .task-card.p5{border-left-color:var(--gray);}
+  .task-card.u3{border-left-color:var(--red);}
+  .task-card.u2{border-left-color:var(--brass);}
+  .task-card.u1{border-left-color:var(--slate);}
+  .task-card.u0{border-left-color:var(--gray);}
+  .task-badge{
+    display:inline-flex;align-items:center;gap:4px;
+    font-family:'IBM Plex Mono', monospace;font-size:10.5px;font-weight:600;
+    padding:2px 7px;border-radius:3px;letter-spacing:0.03em;
+    border:1px solid currentColor;text-transform:uppercase;
+  }
+  .lvl0{color:var(--gray);} .lvl1{color:var(--teal);} .lvl2{color:var(--brass);} .lvl3{color:var(--red);}
+  .stato-badge{
+    font-family:'IBM Plex Mono', monospace;font-size:10.5px;font-weight:600;
+    padding:2px 7px;border-radius:3px;letter-spacing:0.03em;text-transform:uppercase;
+  }
   .task-card.done{opacity:0.4;}
   .task-main{flex:1;}
   .task-title{font-weight:600;font-size:14.5px;margin-bottom:3px;}
@@ -574,6 +584,49 @@ const PRIORITY_LABELS = {
   5: 'Livello 5 — Studio, formazione, AI'
 };
 
+/* Task model (separate from the Sintesi priority levels above) */
+const CATEGORIE_TASK = {
+  'G&A': ['Strategia','AFC','HR','IT','Processi','Altro'],
+  'G&P': ['Commerciale','Gestione clienti','Direzione','Partnership','Promozione','Altro'],
+  'HK': null,
+  'PT': null
+};
+const STATO_TASK = ['Da fare','In Attesa','Completato'];
+
+function sortTasksCascade(list){
+  return list.slice().sort((a,b)=>{
+    const u = (Number(b.urgenza)||0) - (Number(a.urgenza)||0);
+    if(u !== 0) return u;
+    const i = (Number(b.importanza)||0) - (Number(a.importanza)||0);
+    if(i !== 0) return i;
+    const sa = a.scadenza || '9999-99-99';
+    const sb = b.scadenza || '9999-99-99';
+    return sa.localeCompare(sb);
+  });
+}
+
+/* Migrates tasks created under the old 1-5 priority model to the new
+   Categoria/Sottocategoria/Importanza/Urgenza/Stato model. Idempotent. */
+function normalizeTask(t){
+  if(t.categoria === undefined){
+    const p = t.priorita || 3;
+    const map = {1:[3,3], 2:[2,3], 3:[1,2], 4:[1,1], 5:[0,1]};
+    const [u,i] = map[p] || [1,1];
+    t.categoria = 'G&A';
+    t.sottocategoria = 'Altro';
+    t.urgenza = u;
+    t.importanza = i;
+  }
+  if(t.urgenza === undefined || t.urgenza === null) t.urgenza = 1;
+  if(t.importanza === undefined || t.importanza === null) t.importanza = 1;
+  if(t.sottocategoria === undefined) t.sottocategoria = null;
+  if(t.stato === undefined || t.stato === 'Da fare' && t.completata) t.stato = 'Da fare';
+  if(t.completata){ t.stato = 'Completato'; }
+  delete t.completata;
+  delete t.priorita;
+  return t;
+}
+
 function fmtDate(){
   const d = new Date();
   return d.toLocaleDateString('it-IT', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
@@ -811,6 +864,8 @@ async function loadState(){
     const r = await storageGet('tasks');
     tasks = r ? JSON.parse(r.value) : [];
   }catch(e){ tasks = []; }
+  const neededMigration = tasks.some(t => t.categoria === undefined || t.completata !== undefined);
+  tasks = tasks.map(normalizeTask);
   try{
     const r = await storageGet('vademecum');
     vademecum = r ? JSON.parse(r.value) : [];
@@ -824,6 +879,7 @@ async function loadState(){
     persone = r ? JSON.parse(r.value) : [];
   }catch(e){ persone = []; }
   await seedIfNeeded();
+  if(neededMigration) await saveTasks();
   renderMatrix();
   renderVademecum();
   renderSintesi();
@@ -953,12 +1009,11 @@ extractBtn.addEventListener('click', async ()=>{
   const systemPrompt = `Sei l'assistente AI di LeoBrain, secondo cervello di un Senior Partner di consulenza aziendale.
 Oggi è ${todayStr}. Anno corrente: ${today.getFullYear()}.
 
-Estrai dal testo dettato tutte le attività (task) distinte. Per ciascuna, assegna un livello di priorità da 1 a 5 secondo queste regole fisse:
-- Livello 1: Scadenze a calendario / altissima priorità logistica (impegni con data e ora fissa).
-- Livello 2: Commerciale e Progetti Clienti.
-- Livello 3: Strategia Aziendale (es. ristrutturazione societaria).
-- Livello 4: Operatività G&A e HR (es. carichi di lavoro interni).
-- Livello 5: Studio, Formazione, AI.
+Estrai dal testo dettato tutte le attività (task) distinte. Per ciascuna, assegna:
+- categoria: una tra "G&A" (Gestione Interna), "G&P" (Commerciale/Progetti), "HK", "PT"
+- sottocategoria: SOLO se categoria è "G&A" (scegli tra: Strategia, AFC, HR, IT, Processi, Altro) oppure "G&P" (scegli tra: Commerciale, Gestione clienti, Direzione, Partnership, Promozione, Altro); se categoria è "HK" o "PT" usa null
+- importanza: numero da 0 a 3 (0=nessuna, 1=bassa, 2=media, 3=alta) — quanto conta questa attività per gli obiettivi generali
+- urgenza: numero da 0 a 3 (0=nessuna, 1=bassa, 2=media, 3=alta) — quanto richiede azione immediata / quanto è vicina la scadenza
 
 Se un'attività dipende dall'azione di un'altra persona (es. "aspetto il via libera da X", "in attesa di Y"), imposta stato = "In Attesa" e compila attendo_da con il nome della persona. Altrimenti stato = "Da fare" e attendo_da = null.
 Se è citata una scadenza (anche relativa, es. "venerdì"), convertila in una data ISO (YYYY-MM-DD) basata sulla data di oggi fornita sopra; altrimenti usa null.
@@ -970,7 +1025,7 @@ Infine, individua eventuali FATTI STABILI su persone o clienti citati (preferenz
 
 Rispondi SOLO con un oggetto JSON valido, su un'unica struttura compatta, senza a capo letterali dentro i valori delle stringhe (se serve andare a capo nel testo, usa uno spazio), nessun testo prima o dopo, nessun blocco markdown, in questo formato:
 {
-  "task": [ {"titolo": string breve, "descrizione": string, "cliente": string, "scadenza": string|null, "stato": "Da fare"|"In Attesa", "attendo_da": string|null, "priorita": number} ],
+  "task": [ {"titolo": string breve, "descrizione": string, "cliente": string, "categoria": "G&A"|"G&P"|"HK"|"PT", "sottocategoria": string|null, "importanza": number, "urgenza": number, "scadenza": string|null, "stato": "Da fare"|"In Attesa", "attendo_da": string|null} ],
   "sintesi": [ {"titolo": string breve, "cliente": string, "priorita": number, "testo": string riassuntivo} ],
   "persone": [ {"nome": string, "nota": string breve del fatto stabile individuato} ]
 }
@@ -1019,6 +1074,7 @@ function renderExtractCandidates(){
   extractedCandidates.forEach((c, idx)=>{
     const card = document.createElement('div');
     card.className = 'extract-card';
+    const cat = CATEGORIE_TASK[c.categoria] !== undefined ? c.categoria : 'G&A';
     card.innerHTML = `
       <div class="row">
         <input type="text" class="extract-title-input" data-f="titolo" value="${escapeAttr(c.titolo||'')}" style="width:100%">
@@ -1029,9 +1085,30 @@ function renderExtractCandidates(){
           <input type="text" data-f="cliente" value="${escapeAttr(c.cliente||'Gestione Interna G&A')}" style="width:100%">
         </div>
         <div>
-          <span class="field-label">Priorità</span>
-          <select data-f="priorita" style="width:100%">
-            ${[1,2,3,4,5].map(p=>`<option value="${p}" ${Number(c.priorita)===p?'selected':''}>${p} — ${PRIORITY_LABELS[p].split('—')[1].trim()}</option>`).join('')}
+          <span class="field-label">Categoria</span>
+          <select data-f="categoria" style="width:100%">
+            ${Object.keys(CATEGORIE_TASK).map(k=>`<option value="${k}" ${cat===k?'selected':''}>${k}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <span class="field-label">Sottocategoria</span>
+          <select data-f="sottocategoria" style="width:100%"></select>
+        </div>
+        <div></div>
+      </div>
+      <div class="grid2">
+        <div>
+          <span class="field-label">Importanza (0-3)</span>
+          <select data-f="importanza" style="width:100%">
+            ${[0,1,2,3].map(n=>`<option value="${n}" ${Number(c.importanza)===n?'selected':''}>${n}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <span class="field-label">Urgenza (0-3)</span>
+          <select data-f="urgenza" style="width:100%">
+            ${[0,1,2,3].map(n=>`<option value="${n}" ${Number(c.urgenza)===n?'selected':''}>${n}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -1061,6 +1138,20 @@ function renderExtractCandidates(){
         <button class="btn btn-primary btn-small" data-action="confirm">Conferma e salva</button>
       </div>
     `;
+    const catSelect = card.querySelector('[data-f=categoria]');
+    const subSelect = card.querySelector('[data-f=sottocategoria]');
+    function populateSub(selected){
+      const subs = CATEGORIE_TASK[catSelect.value];
+      if(!subs){
+        subSelect.innerHTML = `<option value="">—</option>`;
+        subSelect.disabled = true;
+      }else{
+        subSelect.disabled = false;
+        subSelect.innerHTML = subs.map(s=>`<option value="${s}" ${selected===s?'selected':''}>${s}</option>`).join('');
+      }
+    }
+    populateSub(c.sottocategoria || null);
+    catSelect.addEventListener('change', ()=> populateSub(null));
     card.querySelector('[data-action=discard]').addEventListener('click', ()=>{
       extractedCandidates.splice(idx,1);
       renderExtractCandidates();
@@ -1073,11 +1164,13 @@ function renderExtractCandidates(){
         titolo: fields.titolo,
         descrizione: fields.descrizione,
         cliente: fields.cliente,
+        categoria: fields.categoria,
+        sottocategoria: fields.sottocategoria || null,
+        importanza: Number(fields.importanza),
+        urgenza: Number(fields.urgenza),
         scadenza: fields.scadenza || null,
         stato: fields.stato,
         attendo_da: fields.attendo_da || null,
-        priorita: Number(fields.priorita),
-        completata: false,
         creata: new Date().toISOString()
       };
       tasks.push(newTask);
@@ -1241,22 +1334,14 @@ function renderMatrix(){
   container.innerHTML = '';
 
   if(sub === 'carico'){
-    const active = tasks.filter(t=>!t.completata);
+    const active = tasks.filter(t=>t.stato !== 'Completato');
     if(active.length === 0){
       container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessuna attività</div>Registra il primo scarico mentale nel modulo Imbuto vocale.</div>`;
       return;
     }
-    for(let p=1;p<=5;p++){
-      const group = active.filter(t=>t.priorita===p).sort((a,b)=>(a.scadenza||'9999').localeCompare(b.scadenza||'9999'));
-      if(group.length===0) continue;
-      const gEl = document.createElement('div');
-      gEl.className = 'priority-group';
-      gEl.innerHTML = `<div class="priority-head"><span class="stamp p${p}">P${p}</span><h3>${PRIORITY_LABELS[p]}</h3></div>`;
-      group.forEach(t=> gEl.appendChild(taskCard(t)) );
-      container.appendChild(gEl);
-    }
+    sortTasksCascade(active).forEach(t=> container.appendChild(taskCard(t)) );
   } else if(sub === 'attesa'){
-    const waiting = tasks.filter(t=>!t.completata && t.stato==='In Attesa');
+    const waiting = tasks.filter(t=>t.stato==='In Attesa');
     if(waiting.length === 0){
       container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessun collo di bottiglia</div>Tutte le attività dipendono solo da te, al momento.</div>`;
       return;
@@ -1267,7 +1352,7 @@ function renderMatrix(){
       (byPerson[key] = byPerson[key]||[]).push(t);
     });
     Object.keys(byPerson).sort().forEach(person=>{
-      const list = byPerson[person];
+      const list = sortTasksCascade(byPerson[person]);
       const g = document.createElement('div');
       g.className = 'bottleneck-group';
       g.innerHTML = `<div class="bottleneck-head"><h3>Da ${person}</h3><span class="bottleneck-count">${list.length} attivit${list.length>1?'à':'à'}</span></div>`;
@@ -1289,7 +1374,7 @@ function renderMatrix(){
       container.appendChild(g);
     });
   } else if(sub === 'completate'){
-    const done = tasks.filter(t=>t.completata).sort((a,b)=>(b.creata||'').localeCompare(a.creata||''));
+    const done = tasks.filter(t=>t.stato==='Completato').sort((a,b)=>(b.creata||'').localeCompare(a.creata||''));
     if(done.length === 0){
       container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessuna task completata</div>Le attività che segni come completate compariranno qui.</div>`;
       return;
@@ -1298,34 +1383,31 @@ function renderMatrix(){
     note.style.cssText = 'font-size:12.5px;color:var(--paper-dim);margin-bottom:16px;';
     note.textContent = 'Tocca ↺ su una task per riportarla attiva, oppure ✕ per eliminarla definitivamente.';
     container.appendChild(note);
-    for(let p=1;p<=5;p++){
-      const group = done.filter(t=>t.priorita===p);
-      if(group.length===0) continue;
-      const gEl = document.createElement('div');
-      gEl.className = 'priority-group';
-      gEl.innerHTML = `<div class="priority-head"><span class="stamp p${p}">P${p}</span><h3>${PRIORITY_LABELS[p]}</h3></div>`;
-      group.forEach(t=> gEl.appendChild(taskCard(t)) );
-      container.appendChild(gEl);
-    }
+    done.forEach(t=> container.appendChild(taskCard(t)) );
   }
 }
 
 function taskCard(t){
   const el = document.createElement('div');
-  el.className = 'task-card p'+t.priorita + (t.completata?' done':'');
-  const meta = [];
+  const isDone = t.stato === 'Completato';
+  el.className = 'task-card u'+(Number(t.urgenza)||0) + (isDone?' done':'');
+  const catLabel = t.sottocategoria ? `${t.categoria} · ${t.sottocategoria}` : t.categoria;
+  const meta = [catLabel];
   if(t.cliente) meta.push(t.cliente);
+  meta.push(`<span class="lvl${t.importanza||0}">I${t.importanza||0}</span>`);
+  meta.push(`<span class="lvl${t.urgenza||0}">U${t.urgenza||0}</span>`);
   if(t.scadenza) meta.push('Scad. '+ new Date(t.scadenza+'T00:00:00').toLocaleDateString('it-IT'));
-  if(t.stato==='In Attesa' && t.attendo_da) meta.push('In attesa da '+t.attendo_da);
+  meta.push(escapeAttr(t.stato||'Da fare'));
+  if(t.stato==='In Attesa' && t.attendo_da) meta.push('da '+escapeAttr(t.attendo_da));
   el.innerHTML = `
     <div class="task-main">
-      <div class="task-title ${t.completata?'done':''}">${escapeAttr(t.titolo)}</div>
-      <div class="task-meta">${meta.map(m=>`<span>${escapeAttr(m)}</span>`).join('')}</div>
+      <div class="task-title ${isDone?'done':''}">${escapeAttr(t.titolo)}</div>
+      <div class="task-meta">${meta.map(m=>`<span>${m}</span>`).join('')}</div>
       ${t.descrizione ? `<div class="task-desc">${escapeAttr(t.descrizione)}</div>` : ''}
     </div>
     <div class="task-actions">
       <button class="icon-btn" data-act="edit" title="Modifica">✎</button>
-      <button class="icon-btn" data-act="done" title="Segna completata">${t.completata? '↺' : '✓'}</button>
+      <button class="icon-btn" data-act="done" title="Segna completata">${isDone? '↺' : '✓'}</button>
       <button class="icon-btn" data-act="del" title="Elimina">✕</button>
     </div>
   `;
@@ -1340,9 +1422,30 @@ function taskCard(t){
           <input type="text" data-f="cliente" value="${escapeAttr(t.cliente||'')}" style="width:100%">
         </div>
         <div>
-          <span class="field-label">Priorità</span>
-          <select data-f="priorita" style="width:100%">
-            ${[1,2,3,4,5].map(p=>`<option value="${p}" ${t.priorita===p?'selected':''}>${p} — ${PRIORITY_LABELS[p].split('—')[1].trim()}</option>`).join('')}
+          <span class="field-label">Categoria</span>
+          <select data-f="categoria" style="width:100%">
+            ${Object.keys(CATEGORIE_TASK).map(k=>`<option value="${k}" ${t.categoria===k?'selected':''}>${k}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <span class="field-label">Sottocategoria</span>
+          <select data-f="sottocategoria" style="width:100%"></select>
+        </div>
+        <div></div>
+      </div>
+      <div class="grid2">
+        <div>
+          <span class="field-label">Importanza (0-3)</span>
+          <select data-f="importanza" style="width:100%">
+            ${[0,1,2,3].map(n=>`<option value="${n}" ${Number(t.importanza)===n?'selected':''}>${n}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <span class="field-label">Urgenza (0-3)</span>
+          <select data-f="urgenza" style="width:100%">
+            ${[0,1,2,3].map(n=>`<option value="${n}" ${Number(t.urgenza)===n?'selected':''}>${n}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -1350,8 +1453,7 @@ function taskCard(t){
         <div>
           <span class="field-label">Stato</span>
           <select data-f="stato" style="width:100%">
-            <option ${t.stato==='Da fare'?'selected':''}>Da fare</option>
-            <option ${t.stato==='In Attesa'?'selected':''}>In Attesa</option>
+            ${STATO_TASK.map(s=>`<option ${t.stato===s?'selected':''}>${s}</option>`).join('')}
           </select>
         </div>
         <div>
@@ -1368,10 +1470,28 @@ function taskCard(t){
       </div>
     `;
     el.appendChild(form);
+    const catSelect = form.querySelector('[data-f=categoria]');
+    const subSelect = form.querySelector('[data-f=sottocategoria]');
+    function populateSub(selected){
+      const subs = CATEGORIE_TASK[catSelect.value];
+      if(!subs){
+        subSelect.innerHTML = `<option value="">—</option>`;
+        subSelect.disabled = true;
+      }else{
+        subSelect.disabled = false;
+        subSelect.innerHTML = subs.map(s=>`<option value="${s}" ${selected===s?'selected':''}>${s}</option>`).join('');
+      }
+    }
+    populateSub(t.sottocategoria || null);
+    catSelect.addEventListener('change', ()=> populateSub(null));
     form.querySelector('[data-act=save-edit]').addEventListener('click', async ()=>{
       form.querySelectorAll('[data-f]').forEach(input=>{
         const val = input.value;
-        t[input.dataset.f] = input.dataset.f === 'priorita' ? Number(val) : (val || null);
+        if(input.dataset.f === 'importanza' || input.dataset.f === 'urgenza'){
+          t[input.dataset.f] = Number(val);
+        }else{
+          t[input.dataset.f] = val || null;
+        }
       });
       await saveTasks();
       renderMatrix();
@@ -1379,7 +1499,7 @@ function taskCard(t){
     });
   });
   el.querySelector('[data-act=done]').addEventListener('click', async ()=>{
-    t.completata = !t.completata;
+    t.stato = isDone ? 'Da fare' : 'Completato';
     await saveTasks();
     renderMatrix();
   });
