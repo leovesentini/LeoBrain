@@ -605,6 +605,17 @@ function sortTasksCascade(list){
   });
 }
 
+/* True if the task has a scadenza that falls today, is overdue, or is within the next 7 days. */
+function isScadenzaImminente(dateStr){
+  if(!dateStr) return false;
+  const d = new Date(dateStr+'T00:00:00');
+  if(isNaN(d)) return false;
+  const limit = new Date();
+  limit.setHours(0,0,0,0);
+  limit.setDate(limit.getDate()+7);
+  return d <= limit;
+}
+
 /* Migrates tasks created under the old 1-5 priority model to the new
    Categoria/Sottocategoria/Importanza/Urgenza/Stato model. Idempotent. */
 function normalizeTask(t){
@@ -1339,7 +1350,24 @@ function renderMatrix(){
       container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessuna attività</div>Registra il primo scarico mentale nel modulo Imbuto vocale.</div>`;
       return;
     }
-    sortTasksCascade(active).forEach(t=> container.appendChild(taskCard(t)) );
+    const imminenti = active.filter(t=>isScadenzaImminente(t.scadenza))
+      .sort((a,b)=>(a.scadenza||'').localeCompare(b.scadenza||''));
+    const resto = sortTasksCascade(active.filter(t=>!isScadenzaImminente(t.scadenza)));
+
+    if(imminenti.length > 0){
+      const h1 = document.createElement('div');
+      h1.className = 'section-title';
+      h1.textContent = 'Scadenze entro 7 giorni';
+      container.appendChild(h1);
+      imminenti.forEach(t=> container.appendChild(taskCard(t)) );
+    }
+    if(resto.length > 0){
+      const h2 = document.createElement('div');
+      h2.className = 'section-title';
+      h2.textContent = 'Urgenza · Importanza · Scadenza';
+      container.appendChild(h2);
+      resto.forEach(t=> container.appendChild(taskCard(t)) );
+    }
   } else if(sub === 'attesa'){
     const waiting = tasks.filter(t=>t.stato==='In Attesa');
     if(waiting.length === 0){
