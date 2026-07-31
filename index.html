@@ -387,7 +387,7 @@
     </div>
     <div class="tabs">
       <div class="tab active" data-view="record"><span class="tab-num">A</span>Imbuto vocale</div>
-      <div class="tab" data-view="matrix"><span class="tab-num">B</span>Matrice di flusso</div>
+      <div class="tab" data-view="matrix"><span class="tab-num">B</span>Task Manager</div>
       <div class="tab" data-view="vademecum"><span class="tab-num">C</span>Vademecum</div>
       <div class="tab" data-view="sintesi"><span class="tab-num">D</span>Sintesi</div>
       <div class="tab" data-view="persone"><span class="tab-num">E</span>Persone</div>
@@ -591,29 +591,51 @@ const CATEGORIE_TASK = {
   'HK': null,
   'PT': null
 };
-const STATO_TASK = ['Da fare','In Attesa','Completato'];
+const STATO_TASK = ['Da fare','Programmata','In Attesa','Completato'];
 
-function sortTasksCascade(list){
+/* Generic cascade sorter: fields is an ordered array of {key, dir}. */
+function sortByFields(list, fields){
   return list.slice().sort((a,b)=>{
-    const u = (Number(b.urgenza)||0) - (Number(a.urgenza)||0);
-    if(u !== 0) return u;
-    const i = (Number(b.importanza)||0) - (Number(a.importanza)||0);
-    if(i !== 0) return i;
-    const sa = a.scadenza || '9999-99-99';
-    const sb = b.scadenza || '9999-99-99';
-    return sa.localeCompare(sb);
+    for(const f of fields){
+      if(f.key === 'scadenza'){
+        const av = a.scadenza || '9999-99-99';
+        const bv = b.scadenza || '9999-99-99';
+        const cmp = av.localeCompare(bv);
+        if(cmp !== 0) return f.dir === 'asc' ? cmp : -cmp;
+      }else{
+        const av = Number(a[f.key])||0;
+        const bv = Number(b[f.key])||0;
+        if(av !== bv) return f.dir === 'asc' ? av-bv : bv-av;
+      }
+    }
+    return 0;
   });
 }
 
-/* True if the task has a scadenza that falls today, is overdue, or is within the next 7 days. */
-function isScadenzaImminente(dateStr){
-  if(!dateStr) return false;
+const ORDER_SCADUTI    = [{key:'urgenza',dir:'desc'},   {key:'scadenza',dir:'asc'}, {key:'importanza',dir:'desc'}];
+const ORDER_PROGRAMMATI= [{key:'scadenza',dir:'asc'},   {key:'importanza',dir:'desc'}, {key:'urgenza',dir:'desc'}];
+const ORDER_ENTRO7     = [{key:'urgenza',dir:'desc'},   {key:'scadenza',dir:'asc'}, {key:'importanza',dir:'desc'}];
+const ORDER_IN_SCADENZA= [{key:'importanza',dir:'desc'},{key:'urgenza',dir:'desc'}, {key:'scadenza',dir:'asc'}];
+
+function parseTaskDate(dateStr){
+  if(!dateStr) return null;
   const d = new Date(dateStr+'T00:00:00');
-  if(isNaN(d)) return false;
-  const limit = new Date();
-  limit.setHours(0,0,0,0);
-  limit.setDate(limit.getDate()+7);
-  return d <= limit;
+  return isNaN(d) ? null : d;
+}
+/* Scadenza oggi o nel passato. */
+function isScaduto(dateStr){
+  const d = parseTaskDate(dateStr);
+  if(!d) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return d <= today;
+}
+/* Scadenza strettamente futura, entro i prossimi 7 giorni. */
+function isEntro7(dateStr){
+  const d = parseTaskDate(dateStr);
+  if(!d) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const limit = new Date(today); limit.setDate(limit.getDate()+7);
+  return d > today && d <= limit;
 }
 
 /* Migrates tasks created under the old 1-5 priority model to the new
@@ -1350,24 +1372,27 @@ function renderMatrix(){
       container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessuna attività</div>Registra il primo scarico mentale nel modulo Imbuto vocale.</div>`;
       return;
     }
-    const imminenti = active.filter(t=>isScadenzaImminente(t.scadenza))
-      .sort((a,b)=>(a.scadenza||'').localeCompare(b.scadenza||''));
-    const resto = sortTasksCascade(active.filter(t=>!isScadenzaImminente(t.scadenza)));
-
-    if(imminenti.length > 0){
-      const h1 = document.createElement('div');
-      h1.className = 'section-title';
-      h1.textContent = 'Scadenze entro 7 giorni';
-      container.appendChild(h1);
-      imminenti.forEach(t=> container.appendChild(taskCard(t)) );
-    }
-    if(resto.length > 0){
-      const h2 = document.createElement('div');
-      h2.className = 'section-title';
-      h2.textContent = 'Urgenza · Importanza · Scadenza';
-      container.appendChild(h2);
-      resto.forEach(t=> container.appendChild(taskCard(t)) );
-    }
+    const scaduti = [], programmati = [], entro7 = [], inScadenza = [];
+    active.forEach(t=>{
+      if(isScaduto(t.scadenza)) scaduti.push(t);
+      else if(t.stato === 'Programmata') programmati.push(t);
+      else if(isEntro7(t.scadenza)) entro7.push(t);
+      else inScadenza.push(t);
+    });
+    const gruppi = [
+      ['Scaduti', sortByFields(scaduti, ORDER_SCADUTI)],
+      ['Programmati', sortByFields(programmati, ORDER_PROGRAMMATI)],
+      ['Scadenza entro 7 giorni', sortByFields(entro7, ORDER_ENTRO7)],
+      ['In scadenza', sortByFields(inScadenza, ORDER_IN_SCADENZA)]
+    ];
+    gruppi.forEach(([label, list])=>{
+      if(list.length === 0) return;
+      const h = document.createElement('div');
+      h.className = 'section-title';
+      h.textContent = label;
+      container.appendChild(h);
+      list.forEach(t=> container.appendChild(taskCard(t)) );
+    });
   } else if(sub === 'attesa'){
     const waiting = tasks.filter(t=>t.stato==='In Attesa');
     if(waiting.length === 0){
@@ -1380,7 +1405,7 @@ function renderMatrix(){
       (byPerson[key] = byPerson[key]||[]).push(t);
     });
     Object.keys(byPerson).sort().forEach(person=>{
-      const list = sortTasksCascade(byPerson[person]);
+      const list = sortByFields(byPerson[person], ORDER_ENTRO7);
       const g = document.createElement('div');
       g.className = 'bottleneck-group';
       g.innerHTML = `<div class="bottleneck-head"><h3>Da ${person}</h3><span class="bottleneck-count">${list.length} attivit${list.length>1?'à':'à'}</span></div>`;
