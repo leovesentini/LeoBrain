@@ -558,7 +558,11 @@
     <div style="font-size:13px;color:var(--paper-dim);line-height:1.6;margin-bottom:14px;">
       Task, sintesi, vademecum e persone sono salvati in questo browser, su questo dispositivo. Non si sincronizzano automaticamente altrove.
     </div>
-    <button class="btn btn-danger" id="exportDataBtn">Esporta backup (JSON)</button>
+    <div class="btn-row">
+      <button class="btn btn-danger" id="exportDataBtn">Esporta backup (JSON)</button>
+      <button class="btn" id="importDataBtn">Importa backup (JSON)</button>
+      <input type="file" id="importFileInput" accept="application/json,.json" style="display:none;">
+    </div>
   </div>
 </div>
 
@@ -911,7 +915,9 @@ async function loadState(){
     const r = await storageGet('persone');
     persone = r ? JSON.parse(r.value) : [];
   }catch(e){ persone = []; }
-  await seedIfNeeded();
+  // Nota: il caricamento automatico dei task/sintesi demo iniziali (seedIfNeeded)
+  // è stato disattivato: causava la ricomparsa di task già eliminate/completate
+  // ogni volta che l'app partiva su uno spazio dati vuoto (es. icona ricreata).
   if(neededMigration) await saveTasks();
   renderMatrix();
   renderVademecum();
@@ -1905,6 +1911,35 @@ document.getElementById('exportDataBtn').addEventListener('click', ()=>{
   a.download = 'leobrain-backup-' + new Date().toISOString().slice(0,10) + '.json';
   a.click();
   URL.revokeObjectURL(url);
+});
+
+document.getElementById('importDataBtn').addEventListener('click', ()=>{
+  document.getElementById('importFileInput').click();
+});
+document.getElementById('importFileInput').addEventListener('change', async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    const riepilogo = `Task: ${(backup.tasks||[]).length}, Sintesi: ${(backup.sintesi||[]).length}, Vademecum: ${(backup.vademecum||[]).length}, Persone: ${(backup.persone||[]).length}`;
+    const ok = confirm(`Importare questo backup?\n${riepilogo}\n\nSostituirà tutti i dati attualmente salvati su questo dispositivo.`);
+    if(!ok){ e.target.value = ''; return; }
+    tasks = Array.isArray(backup.tasks) ? backup.tasks.map(normalizeTask) : [];
+    vademecum = Array.isArray(backup.vademecum) ? backup.vademecum : [];
+    sintesi = Array.isArray(backup.sintesi) ? backup.sintesi : [];
+    persone = Array.isArray(backup.persone) ? backup.persone : [];
+    await saveTasks();
+    await saveVademecum();
+    await saveSintesi();
+    await savePersone();
+    renderMatrix(); renderVademecum(); renderSintesi(); renderPersone();
+    showToast('Backup importato con successo');
+  }catch(err){
+    showToast('Errore importazione: ' + (err.message||err));
+  }finally{
+    e.target.value = '';
+  }
 });
 
 /* ---------- PLAUD WORKER CONNECTION ---------- */
