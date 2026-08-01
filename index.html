@@ -1823,12 +1823,47 @@ function renderSintesi(){
           ${escapeAttr(s.testo)}
           <div class="approfondimento-block" id="approf-${s.id}"></div>
         </div>
-        <div class="sintesi-actions"><button class="icon-btn" data-act="del" title="Elimina">✕</button></div>
+        <div class="sintesi-actions">
+          <button class="icon-btn" data-act="editcat" title="Modifica categoria">✎</button>
+          <button class="icon-btn" data-act="del" title="Elimina">✕</button>
+        </div>
+        <div class="task-edit-form" id="catedit-${s.id}" style="display:none;"></div>
       `;
       card.addEventListener('click', (e)=>{
-        if(e.target.closest('button') || e.target.closest('textarea')) return;
+        if(e.target.closest('button') || e.target.closest('textarea') || e.target.closest('select')) return;
         const nowOpen = card.classList.toggle('open');
         if(nowOpen) openSintesiIds.add(s.id); else openSintesiIds.delete(s.id);
+      });
+      card.querySelector('[data-act=editcat]').addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const box = card.querySelector('#catedit-'+s.id);
+        const isVisible = box.style.display !== 'none';
+        if(isVisible){ box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        box.innerHTML = `
+          <div class="grid2">
+            <div>
+              <span class="field-label">Categoria</span>
+              <select data-f="categoria" style="width:100%"></select>
+            </div>
+            <div>
+              <span class="field-label">Sottocategoria</span>
+              <select data-f="sottocategoria" style="width:100%"></select>
+            </div>
+          </div>
+          <div class="extract-actions">
+            <button class="btn btn-primary btn-small" data-act="save-cat">Salva categoria</button>
+          </div>
+        `;
+        wireCategoriaSottocategoria(box.querySelector('[data-f=categoria]'), box.querySelector('[data-f=sottocategoria]'), s.categoria||'G&A', s.sottocategoria||null);
+        box.querySelector('[data-act=save-cat]').addEventListener('click', async (e2)=>{
+          e2.stopPropagation();
+          s.categoria = box.querySelector('[data-f=categoria]').value;
+          s.sottocategoria = box.querySelector('[data-f=sottocategoria]').value || null;
+          await saveSintesi();
+          renderSintesi();
+          showToast('Categoria aggiornata');
+        });
       });
       card.querySelector('[data-act=del]').addEventListener('click', async (e)=>{
         e.stopPropagation();
@@ -2024,8 +2059,46 @@ function renderPersone(){
       <div class="vad-top"><span class="vad-title">${escapeAttr(p.nome)}</span>${catTag?`<span class="vad-type">${escapeAttr(catTag)}</span>`:''}</div>
       <div class="vad-preview">${escapeAttr(p.note)}</div>
       <div class="vad-full">${escapeAttr(p.note)}</div>
+      <div class="sintesi-actions" style="margin-top:8px;">
+        <button class="icon-btn" data-act="editcat" title="Modifica categoria">✎</button>
+      </div>
+      <div class="task-edit-form" id="personacat-${p.id}" style="display:none;"></div>
     `;
-    card.addEventListener('click', ()=> card.classList.toggle('open'));
+    card.addEventListener('click', (e)=>{
+      if(e.target.closest('button') || e.target.closest('select')) return;
+      card.classList.toggle('open');
+    });
+    card.querySelector('[data-act=editcat]').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const box = card.querySelector('#personacat-'+p.id);
+      const isVisible = box.style.display !== 'none';
+      if(isVisible){ box.style.display = 'none'; return; }
+      box.style.display = 'block';
+      box.innerHTML = `
+        <div class="grid2">
+          <div>
+            <span class="field-label">Categoria</span>
+            <select data-f="categoria" style="width:100%"></select>
+          </div>
+          <div>
+            <span class="field-label">Sottocategoria</span>
+            <select data-f="sottocategoria" style="width:100%"></select>
+          </div>
+        </div>
+        <div class="extract-actions">
+          <button class="btn btn-primary btn-small" data-act="save-cat">Salva categoria</button>
+        </div>
+      `;
+      wireCategoriaSottocategoria(box.querySelector('[data-f=categoria]'), box.querySelector('[data-f=sottocategoria]'), p.categoria||'G&A', p.sottocategoria||null);
+      box.querySelector('[data-act=save-cat]').addEventListener('click', async (e2)=>{
+        e2.stopPropagation();
+        p.categoria = box.querySelector('[data-f=categoria]').value;
+        p.sottocategoria = box.querySelector('[data-f=sottocategoria]').value || null;
+        await savePersone();
+        renderPersone();
+        showToast('Categoria aggiornata');
+      });
+    });
     container.appendChild(card);
   });
 }
