@@ -318,11 +318,6 @@
     background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--gray);
     border-radius:6px;padding:14px 16px;margin-bottom:10px;cursor:pointer;
   }
-  .sintesi-card.p1{border-left-color:var(--red);}
-  .sintesi-card.p2{border-left-color:var(--brass);}
-  .sintesi-card.p3{border-left-color:var(--slate);}
-  .sintesi-card.p4{border-left-color:var(--teal);}
-  .sintesi-card.p5{border-left-color:var(--gray);}
   .sintesi-card:hover{border-color:var(--brass);}
   .sintesi-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;}
   .sintesi-title{font-weight:600;font-size:14.5px;}
@@ -490,16 +485,7 @@
 
     <div class="add-vad-form" id="addSintesiForm" style="display:none;">
       <input type="text" id="sintesiTitolo" placeholder="Titolo (es. Sabatani — crisi GDO e memorandum AD)">
-      <div class="grid2">
-        <input type="text" id="sintesiCliente" placeholder="Cliente / Progetto (es. Gestione Interna G&A)">
-        <select id="sintesiPriorita">
-          <option value="1">1 — Scadenze a calendario</option>
-          <option value="2">2 — Commerciale e clienti</option>
-          <option value="3">3 — Strategia aziendale</option>
-          <option value="4">4 — Operatività G&A e HR</option>
-          <option value="5">5 — Studio, formazione, AI</option>
-        </select>
-      </div>
+      <input type="text" id="sintesiCliente" placeholder="Cliente / Progetto (es. Gestione Interna G&A)" style="margin-bottom:10px;">
       <div class="grid2">
         <select id="sintesiCategoria"></select>
         <select id="sintesiSottocategoria"></select>
@@ -1165,14 +1151,14 @@ Se un'attività dipende dall'azione di un'altra persona (es. "aspetto il via lib
 Se è citata una scadenza (anche relativa, es. "venerdì"), convertila in una data ISO (YYYY-MM-DD) basata sulla data di oggi fornita sopra; altrimenti usa null.
 Se è citato un cliente o progetto, mettilo in cliente; altrimenti usa "Gestione Interna G&A".
 
-Oltre alle task, individua anche i "temi" o argomenti principali trattati nel testo (es. l'andamento di un cliente, una decisione strategica, un aggiornamento di contesto) e produci per ciascuno una breve SINTESI riassuntiva, utile per ricordare in futuro cosa è stato condiviso — anche se non genera un'azione diretta. Cataloga ogni sintesi con lo stesso criterio di priorità (1-5) e lo stesso campo cliente/progetto usato per le task, e assegna anche categoria e sottocategoria con le stesse regole descritte sopra per le task (categoria tra "G&A","G&P","HK","PT"; sottocategoria solo per G&A/G&P, altrimenti null).
+Oltre alle task, individua anche i "temi" o argomenti principali trattati nel testo (es. l'andamento di un cliente, una decisione strategica, un aggiornamento di contesto) e produci per ciascuno una breve SINTESI riassuntiva, utile per ricordare in futuro cosa è stato condiviso — anche se non genera un'azione diretta. Usa lo stesso campo cliente/progetto delle task, e assegna anche categoria e sottocategoria con le stesse regole descritte sopra per le task (categoria tra "G&A","G&P","HK","PT"; sottocategoria solo per G&A/G&P, altrimenti null).
 
 Infine, individua eventuali FATTI STABILI su persone o clienti citati (preferenze, caratteristiche, dettagli operativi che restano validi nel tempo, es. "preferisce essere chiamato dopo le 16", "usa SAP", "ha problemi di budget") — non task né sintesi di eventi, ma informazioni di contesto durature da ricordare su quella persona/cliente. Assegna anche a ciascuna persona categoria e sottocategoria (stesse regole di cui sopra), in base all'ambito a cui la persona è più associata nel testo.
 
 Rispondi SOLO con un oggetto JSON valido, su un'unica struttura compatta, senza a capo letterali dentro i valori delle stringhe (se serve andare a capo nel testo, usa uno spazio), nessun testo prima o dopo, nessun blocco markdown, in questo formato:
 {
   "task": [ {"titolo": string breve, "descrizione": string, "cliente": string, "categoria": "G&A"|"G&P"|"HK"|"PT", "sottocategoria": string|null, "importanza": number, "urgenza": number, "scadenza": string|null, "stato": "Da fare"|"In Attesa", "attendo_da": string|null} ],
-  "sintesi": [ {"titolo": string breve, "cliente": string, "priorita": number, "categoria": "G&A"|"G&P"|"HK"|"PT", "sottocategoria": string|null, "testo": string riassuntivo} ],
+  "sintesi": [ {"titolo": string breve, "cliente": string, "categoria": "G&A"|"G&P"|"HK"|"PT", "sottocategoria": string|null, "testo": string riassuntivo} ],
   "persone": [ {"nome": string, "categoria": "G&A"|"G&P"|"HK"|"PT", "sottocategoria": string|null, "nota": string breve del fatto stabile individuato} ]
 }
 Se non ci sono task, sintesi o persone individuabili, usa un array vuoto per quel campo.`;
@@ -1356,17 +1342,9 @@ function renderExtractCandidates(){
         <div class="row">
           <input type="text" class="extract-title-input" data-f="titolo" value="${escapeAttr(c.titolo||'')}" style="width:100%">
         </div>
-        <div class="grid2">
-          <div>
-            <span class="field-label">Cliente / Progetto</span>
-            <input type="text" data-f="cliente" value="${escapeAttr(c.cliente||'Gestione Interna G&A')}" style="width:100%">
-          </div>
-          <div>
-            <span class="field-label">Priorità</span>
-            <select data-f="priorita" style="width:100%">
-              ${[1,2,3,4,5].map(p=>`<option value="${p}" ${Number(c.priorita)===p?'selected':''}>${p} — ${PRIORITY_LABELS[p].split('—')[1].trim()}</option>`).join('')}
-            </select>
-          </div>
+        <div>
+          <span class="field-label">Cliente / Progetto</span>
+          <input type="text" data-f="cliente" value="${escapeAttr(c.cliente||'Gestione Interna G&A')}" style="width:100%;margin-bottom:10px;">
         </div>
         <div class="grid2">
           <div>
@@ -1399,7 +1377,6 @@ function renderExtractCandidates(){
           id: 'sy_' + Date.now() + '_' + Math.floor(Math.random()*1000),
           titolo: fields.titolo,
           cliente: fields.cliente,
-          priorita: Number(fields.priorita),
           categoria: fields.categoria,
           sottocategoria: fields.sottocategoria || null,
           testo: fields.testo,
@@ -1767,14 +1744,13 @@ document.getElementById('cancelSintesiBtn').addEventListener('click', ()=>{
 document.getElementById('saveSintesiBtn').addEventListener('click', async ()=>{
   const titolo = document.getElementById('sintesiTitolo').value.trim();
   const cliente = document.getElementById('sintesiCliente').value.trim() || 'Gestione Interna G&A';
-  const priorita = Number(document.getElementById('sintesiPriorita').value);
   const categoria = document.getElementById('sintesiCategoria').value;
   const sottocategoria = document.getElementById('sintesiSottocategoria').value || null;
   const testo = document.getElementById('sintesiTesto').value.trim();
   if(!titolo || !testo){ showToast('Compila titolo e testo'); return; }
   sintesi.push({
     id: 'sy_'+Date.now(),
-    titolo, cliente, priorita, categoria, sottocategoria, testo,
+    titolo, cliente, categoria, sottocategoria, testo,
     creato: new Date().toISOString()
   });
   await saveSintesi();
@@ -1801,17 +1777,19 @@ function renderSintesi(){
     container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessuna sintesi</div>Registra uno scarico mentale nell'Imbuto vocale, oppure aggiungine una manualmente.</div>`;
     return;
   }
-  for(let p=1;p<=5;p++){
-    const group = filtered.filter(s=>s.priorita===p).sort((a,b)=>(b.creato||'').localeCompare(a.creato||''));
-    if(group.length===0) continue;
+  const categorieOrdine = [...Object.keys(CATEGORIE_TASK), 'Non categorizzato'];
+  categorieOrdine.forEach(cat=>{
+    const group = filtered.filter(s => cat==='Non categorizzato' ? !s.categoria : s.categoria===cat)
+      .sort((a,b)=>(b.creato||'').localeCompare(a.creato||''));
+    if(group.length===0) return;
     const gEl = document.createElement('div');
     gEl.className = 'priority-group';
-    gEl.innerHTML = `<div class="priority-head"><span class="stamp p${p}">P${p}</span><h3>${PRIORITY_LABELS[p]}</h3></div>`;
+    gEl.innerHTML = `<div class="priority-head"><h3>${escapeAttr(cat)}</h3></div>`;
     group.forEach(s=>{
       const isOpen = openSintesiIds.has(s.id);
       const isWriting = writingApprofondimentoIds.has(s.id);
       const card = document.createElement('div');
-      card.className = 'sintesi-card p'+p + (isOpen ? ' open' : '');
+      card.className = 'sintesi-card' + (isOpen ? ' open' : '');
       const catTag = s.categoria ? (s.sottocategoria ? `${s.categoria} · ${s.sottocategoria}` : s.categoria) : '';
       card.innerHTML = `
         <div class="sintesi-top">
@@ -1875,7 +1853,7 @@ function renderSintesi(){
       gEl.appendChild(card);
     });
     container.appendChild(gEl);
-  }
+  });
 }
 
 function renderApprofondimentoBlock(el, s, isWriting){
