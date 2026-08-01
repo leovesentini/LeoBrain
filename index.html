@@ -216,6 +216,15 @@
     border:1px solid currentColor;text-transform:uppercase;
   }
   .lvl0{color:var(--gray);} .lvl1{color:var(--teal);} .lvl2{color:var(--brass);} .lvl3{color:var(--red);}
+  .filter-bar{margin-bottom:16px;}
+  .filter-bar-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+  .filter-bar-label{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--paper-dim);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:5px;display:block;}
+  .filter-chip{
+    font-family:'IBM Plex Sans',sans-serif;font-size:12px;padding:5px 11px;border-radius:14px;
+    border:1px solid var(--line);background:transparent;color:var(--paper-dim);cursor:pointer;
+  }
+  .filter-chip.active{background:var(--brass);border-color:var(--brass);color:var(--paper);font-weight:600;}
+  .filter-chip-clear{color:var(--red);border-color:transparent;text-decoration:underline;}
   .stato-badge{
     font-family:'IBM Plex Mono', monospace;font-size:10.5px;font-weight:600;
     padding:2px 7px;border-radius:3px;letter-spacing:0.03em;text-transform:uppercase;
@@ -477,6 +486,8 @@
       <button class="btn" id="addSintesiToggle">+ Nuova</button>
     </div>
 
+    <div id="sintesiFilterBar" class="filter-bar"></div>
+
     <div class="add-vad-form" id="addSintesiForm" style="display:none;">
       <input type="text" id="sintesiTitolo" placeholder="Titolo (es. Sabatani — crisi GDO e memorandum AD)">
       <div class="grid2">
@@ -488,6 +499,10 @@
           <option value="4">4 — Operatività G&A e HR</option>
           <option value="5">5 — Studio, formazione, AI</option>
         </select>
+      </div>
+      <div class="grid2">
+        <select id="sintesiCategoria"></select>
+        <select id="sintesiSottocategoria"></select>
       </div>
       <textarea id="sintesiTesto" placeholder="Sintesi di ciò che è stato condiviso o discusso…"></textarea>
       <div class="btn-row">
@@ -506,8 +521,14 @@
       <button class="btn" id="addPersonaToggle">+ Nuova</button>
     </div>
 
+    <div id="personeFilterBar" class="filter-bar"></div>
+
     <div class="add-vad-form" id="addPersonaForm" style="display:none;">
       <input type="text" id="personaNome" placeholder="Nome (es. Michele Chini)">
+      <div class="grid2">
+        <select id="personaCategoria"></select>
+        <select id="personaSottocategoria"></select>
+      </div>
       <textarea id="personaNote" placeholder="Preferenze, dettagli operativi, caratteristiche ricorrenti…"></textarea>
       <div class="btn-row">
         <button class="btn btn-primary" id="savePersonaBtn">Salva scheda</button>
@@ -552,6 +573,18 @@
         <button class="btn btn-primary" id="savePlaudConfigBtn" style="align-self:flex-start;">Salva collegamento</button>
       </div>
       <div id="plaudConfigStatus" style="margin-top:10px;font-size:12.5px;"></div>
+    </div>
+
+    <div class="ask-box">
+      <span class="field-label">Backup automatico su Cloudflare</span>
+      <div style="font-size:12.5px;color:var(--paper-dim);margin-top:8px;line-height:1.5;">
+        Riusa lo stesso collegamento Plaud qui sopra. Ad ogni salvataggio, LeoBrain invia una copia dei tuoi dati al Worker, in uno dei 7 scomparti (uno per giorno della settimana), sovrascrivendo quello del giorno precedente — così hai sempre fino a una settimana di backup a cui tornare, anche se elimini l'icona.
+      </div>
+      <div id="autoBackupStatus" style="margin-top:10px;font-size:12.5px;"></div>
+      <div class="btn-row" style="margin-top:10px;">
+        <button class="btn" id="checkCloudBackupsBtn">Controlla backup disponibili</button>
+      </div>
+      <div id="cloudBackupsList" style="margin-top:10px;"></div>
     </div>
 
     <div class="section-title">Dati locali</div>
@@ -620,6 +653,75 @@ const ORDER_SCADUTI    = [{key:'urgenza',dir:'desc'},   {key:'scadenza',dir:'asc
 const ORDER_PROGRAMMATI= [{key:'scadenza',dir:'asc'},   {key:'importanza',dir:'desc'}, {key:'urgenza',dir:'desc'}];
 const ORDER_ENTRO7     = [{key:'urgenza',dir:'desc'},   {key:'scadenza',dir:'asc'}, {key:'importanza',dir:'desc'}];
 const ORDER_IN_SCADENZA= [{key:'importanza',dir:'desc'},{key:'urgenza',dir:'desc'}, {key:'scadenza',dir:'asc'}];
+
+/* Shared Categoria/Sottocategoria taxonomy, reused by Sintesi and Persone. */
+const ALL_SOTTOCATEGORIE = [...new Set(Object.values(CATEGORIE_TASK).filter(Boolean).flat())].sort();
+
+function categoriaSelectOptions(selected){
+  return Object.keys(CATEGORIE_TASK).map(k=>`<option value="${k}" ${selected===k?'selected':''}>${k}</option>`).join('');
+}
+function wireCategoriaSottocategoria(catSelect, subSelect, selectedCat, selectedSub){
+  catSelect.innerHTML = categoriaSelectOptions(selectedCat);
+  function populate(selected){
+    const subs = CATEGORIE_TASK[catSelect.value];
+    if(!subs){
+      subSelect.innerHTML = `<option value="">—</option>`;
+      subSelect.disabled = true;
+    }else{
+      subSelect.disabled = false;
+      subSelect.innerHTML = subs.map(s=>`<option value="${s}" ${selected===s?'selected':''}>${s}</option>`).join('');
+    }
+  }
+  populate(selectedSub || null);
+  catSelect.addEventListener('change', ()=> populate(null));
+}
+
+/* Generic filter-chip bar. state = {cat:Set, sub:Set}. onChange(state) re-renders the list. */
+function renderFilterBar(containerId, state, onChange){
+  const el = document.getElementById(containerId);
+  const catRow = Object.keys(CATEGORIE_TASK).map(k=>
+    `<button class="filter-chip ${state.cat.has(k)?'active':''}" data-cat="${k}">${k}</button>`
+  ).join('');
+  const subRow = ALL_SOTTOCATEGORIE.map(s=>
+    `<button class="filter-chip ${state.sub.has(s)?'active':''}" data-sub="${escapeAttr(s)}">${escapeAttr(s)}</button>`
+  ).join('');
+  const hasFilters = state.cat.size > 0 || state.sub.size > 0;
+  el.innerHTML = `
+    <div class="filter-bar-row">${catRow}${hasFilters ? '<button class="filter-chip filter-chip-clear" data-clear="1">Cancella filtri</button>' : ''}</div>
+    <div class="filter-bar-row">${subRow}</div>
+  `;
+  el.querySelectorAll('[data-cat]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const k = btn.dataset.cat;
+      state.cat.has(k) ? state.cat.delete(k) : state.cat.add(k);
+      renderFilterBar(containerId, state, onChange);
+      onChange();
+    });
+  });
+  el.querySelectorAll('[data-sub]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const s = btn.dataset.sub;
+      state.sub.has(s) ? state.sub.delete(s) : state.sub.add(s);
+      renderFilterBar(containerId, state, onChange);
+      onChange();
+    });
+  });
+  const clearBtn = el.querySelector('[data-clear]');
+  if(clearBtn) clearBtn.addEventListener('click', ()=>{
+    state.cat.clear(); state.sub.clear();
+    renderFilterBar(containerId, state, onChange);
+    onChange();
+  });
+}
+function matchesCategoryFilter(item, state){
+  if(state.cat.size === 0 && state.sub.size === 0) return true;
+  const catMatch = state.cat.size > 0 && state.cat.has(item.categoria);
+  const subMatch = state.sub.size > 0 && state.sub.has(item.sottocategoria);
+  return catMatch || subMatch;
+}
+const sintesiFilterState = { cat: new Set(), sub: new Set() };
+const personeFilterState = { cat: new Set(), sub: new Set() };
+
 
 function parseTaskDate(dateStr){
   if(!dateStr) return null;
@@ -925,24 +1027,29 @@ async function loadState(){
   renderPersone();
   renderApiKeyStatus();
   renderPlaudConfigStatus();
+  renderAutoBackupStatus();
   checkPlaudPending();
 }
 
 async function saveTasks(){
   try{ await storageSet('tasks', JSON.stringify(tasks)); }
   catch(e){ showToast('Errore di salvataggio — riprova'); }
+  scheduleAutoBackup();
 }
 async function saveVademecum(){
   try{ await storageSet('vademecum', JSON.stringify(vademecum)); }
   catch(e){ showToast('Errore di salvataggio — riprova'); }
+  scheduleAutoBackup();
 }
 async function saveSintesi(){
   try{ await storageSet('sintesi', JSON.stringify(sintesi)); }
   catch(e){ showToast('Errore di salvataggio — riprova'); }
+  scheduleAutoBackup();
 }
 async function savePersone(){
   try{ await storageSet('persone', JSON.stringify(persone)); }
   catch(e){ showToast('Errore di salvataggio — riprova'); }
+  scheduleAutoBackup();
 }
 
 
@@ -1058,15 +1165,15 @@ Se un'attività dipende dall'azione di un'altra persona (es. "aspetto il via lib
 Se è citata una scadenza (anche relativa, es. "venerdì"), convertila in una data ISO (YYYY-MM-DD) basata sulla data di oggi fornita sopra; altrimenti usa null.
 Se è citato un cliente o progetto, mettilo in cliente; altrimenti usa "Gestione Interna G&A".
 
-Oltre alle task, individua anche i "temi" o argomenti principali trattati nel testo (es. l'andamento di un cliente, una decisione strategica, un aggiornamento di contesto) e produci per ciascuno una breve SINTESI riassuntiva, utile per ricordare in futuro cosa è stato condiviso — anche se non genera un'azione diretta. Cataloga ogni sintesi con lo stesso criterio di priorità (1-5) e lo stesso campo cliente/progetto usato per le task.
+Oltre alle task, individua anche i "temi" o argomenti principali trattati nel testo (es. l'andamento di un cliente, una decisione strategica, un aggiornamento di contesto) e produci per ciascuno una breve SINTESI riassuntiva, utile per ricordare in futuro cosa è stato condiviso — anche se non genera un'azione diretta. Cataloga ogni sintesi con lo stesso criterio di priorità (1-5) e lo stesso campo cliente/progetto usato per le task, e assegna anche categoria e sottocategoria con le stesse regole descritte sopra per le task (categoria tra "G&A","G&P","HK","PT"; sottocategoria solo per G&A/G&P, altrimenti null).
 
-Infine, individua eventuali FATTI STABILI su persone o clienti citati (preferenze, caratteristiche, dettagli operativi che restano validi nel tempo, es. "preferisce essere chiamato dopo le 16", "usa SAP", "ha problemi di budget") — non task né sintesi di eventi, ma informazioni di contesto durature da ricordare su quella persona/cliente.
+Infine, individua eventuali FATTI STABILI su persone o clienti citati (preferenze, caratteristiche, dettagli operativi che restano validi nel tempo, es. "preferisce essere chiamato dopo le 16", "usa SAP", "ha problemi di budget") — non task né sintesi di eventi, ma informazioni di contesto durature da ricordare su quella persona/cliente. Assegna anche a ciascuna persona categoria e sottocategoria (stesse regole di cui sopra), in base all'ambito a cui la persona è più associata nel testo.
 
 Rispondi SOLO con un oggetto JSON valido, su un'unica struttura compatta, senza a capo letterali dentro i valori delle stringhe (se serve andare a capo nel testo, usa uno spazio), nessun testo prima o dopo, nessun blocco markdown, in questo formato:
 {
   "task": [ {"titolo": string breve, "descrizione": string, "cliente": string, "categoria": "G&A"|"G&P"|"HK"|"PT", "sottocategoria": string|null, "importanza": number, "urgenza": number, "scadenza": string|null, "stato": "Da fare"|"In Attesa", "attendo_da": string|null} ],
-  "sintesi": [ {"titolo": string breve, "cliente": string, "priorita": number, "testo": string riassuntivo} ],
-  "persone": [ {"nome": string, "nota": string breve del fatto stabile individuato} ]
+  "sintesi": [ {"titolo": string breve, "cliente": string, "priorita": number, "categoria": "G&A"|"G&P"|"HK"|"PT", "sottocategoria": string|null, "testo": string riassuntivo} ],
+  "persone": [ {"nome": string, "categoria": "G&A"|"G&P"|"HK"|"PT", "sottocategoria": string|null, "nota": string breve del fatto stabile individuato} ]
 }
 Se non ci sono task, sintesi o persone individuabili, usa un array vuoto per quel campo.`;
 
@@ -1261,6 +1368,16 @@ function renderExtractCandidates(){
             </select>
           </div>
         </div>
+        <div class="grid2">
+          <div>
+            <span class="field-label">Categoria</span>
+            <select data-f="categoria" style="width:100%"></select>
+          </div>
+          <div>
+            <span class="field-label">Sottocategoria</span>
+            <select data-f="sottocategoria" style="width:100%"></select>
+          </div>
+        </div>
         <div>
           <span class="field-label">Sintesi</span>
           <textarea data-f="testo" style="width:100%;min-height:70px;">${escapeAttr(c.testo||'')}</textarea>
@@ -1270,6 +1387,7 @@ function renderExtractCandidates(){
           <button class="btn btn-primary btn-small" data-action="confirm">Conferma e salva</button>
         </div>
       `;
+      wireCategoriaSottocategoria(card.querySelector('[data-f=categoria]'), card.querySelector('[data-f=sottocategoria]'), CATEGORIE_TASK[c.categoria]!==undefined?c.categoria:'G&A', c.sottocategoria||null);
       card.querySelector('[data-action=discard]').addEventListener('click', ()=>{
         extractedSintesiCandidates.splice(idx,1);
         renderExtractCandidates();
@@ -1282,6 +1400,8 @@ function renderExtractCandidates(){
           titolo: fields.titolo,
           cliente: fields.cliente,
           priorita: Number(fields.priorita),
+          categoria: fields.categoria,
+          sottocategoria: fields.sottocategoria || null,
           testo: fields.testo,
           creato: new Date().toISOString()
         });
@@ -1320,6 +1440,16 @@ function renderExtractCandidates(){
         <div class="row">
           <input type="text" class="extract-title-input" data-f="nome" value="${escapeAttr(c.nome||'')}" style="width:100%">
         </div>
+        <div class="grid2">
+          <div>
+            <span class="field-label">Categoria</span>
+            <select data-f="categoria" style="width:100%"></select>
+          </div>
+          <div>
+            <span class="field-label">Sottocategoria</span>
+            <select data-f="sottocategoria" style="width:100%"></select>
+          </div>
+        </div>
         <div>
           <span class="field-label">Nota</span>
           <textarea data-f="nota" style="width:100%;min-height:50px;">${escapeAttr(c.nota||'')}</textarea>
@@ -1329,6 +1459,7 @@ function renderExtractCandidates(){
           <button class="btn btn-primary btn-small" data-action="confirm">Conferma e salva</button>
         </div>
       `;
+      wireCategoriaSottocategoria(card.querySelector('[data-f=categoria]'), card.querySelector('[data-f=sottocategoria]'), CATEGORIE_TASK[c.categoria]!==undefined?c.categoria:'G&A', c.sottocategoria||null);
       card.querySelector('[data-action=discard]').addEventListener('click', ()=>{
         extractedPersoneCandidates.splice(idx,1);
         renderExtractCandidates();
@@ -1339,8 +1470,10 @@ function renderExtractCandidates(){
         const existing = persone.find(p=>p.nome.toLowerCase()===fields.nome.toLowerCase());
         if(existing){
           existing.note = existing.note + '\n' + fields.nota;
+          existing.categoria = fields.categoria;
+          existing.sottocategoria = fields.sottocategoria || null;
         }else{
-          persone.push({ id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000), nome: fields.nome, note: fields.nota, aggiornato: new Date().toISOString() });
+          persone.push({ id:'p_'+Date.now()+'_'+Math.floor(Math.random()*1000), nome: fields.nome, note: fields.nota, categoria: fields.categoria, sottocategoria: fields.sottocategoria || null, aggiornato: new Date().toISOString() });
         }
         await savePersone();
         extractedPersoneCandidates.splice(idx,1);
@@ -1624,6 +1757,7 @@ function renderVademecum(){
 /* ---------- SINTESI & CONTENUTI ---------- */
 const addSintesiToggle = document.getElementById('addSintesiToggle');
 const addSintesiForm = document.getElementById('addSintesiForm');
+wireCategoriaSottocategoria(document.getElementById('sintesiCategoria'), document.getElementById('sintesiSottocategoria'), 'G&A', 'Altro');
 addSintesiToggle.addEventListener('click', ()=>{
   addSintesiForm.style.display = addSintesiForm.style.display==='none' ? 'block' : 'none';
 });
@@ -1634,11 +1768,13 @@ document.getElementById('saveSintesiBtn').addEventListener('click', async ()=>{
   const titolo = document.getElementById('sintesiTitolo').value.trim();
   const cliente = document.getElementById('sintesiCliente').value.trim() || 'Gestione Interna G&A';
   const priorita = Number(document.getElementById('sintesiPriorita').value);
+  const categoria = document.getElementById('sintesiCategoria').value;
+  const sottocategoria = document.getElementById('sintesiSottocategoria').value || null;
   const testo = document.getElementById('sintesiTesto').value.trim();
   if(!titolo || !testo){ showToast('Compila titolo e testo'); return; }
   sintesi.push({
     id: 'sy_'+Date.now(),
-    titolo, cliente, priorita, testo,
+    titolo, cliente, priorita, categoria, sottocategoria, testo,
     creato: new Date().toISOString()
   });
   await saveSintesi();
@@ -1655,10 +1791,12 @@ let openSintesiIds = new Set();
 let writingApprofondimentoIds = new Set();
 
 function renderSintesi(){
+  renderFilterBar('sintesiFilterBar', sintesiFilterState, renderSintesi);
   const q = document.getElementById('sintesiSearch').value.trim().toLowerCase();
   const container = document.getElementById('sintesiContent');
   container.innerHTML = '';
-  const filtered = sintesi.filter(s => !q || s.titolo.toLowerCase().includes(q) || s.testo.toLowerCase().includes(q) || (s.cliente||'').toLowerCase().includes(q));
+  const filtered = sintesi.filter(s => !q || s.titolo.toLowerCase().includes(q) || s.testo.toLowerCase().includes(q) || (s.cliente||'').toLowerCase().includes(q))
+    .filter(s => matchesCategoryFilter(s, sintesiFilterState));
   if(filtered.length===0){
     container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessuna sintesi</div>Registra uno scarico mentale nell'Imbuto vocale, oppure aggiungine una manualmente.</div>`;
     return;
@@ -1674,10 +1812,11 @@ function renderSintesi(){
       const isWriting = writingApprofondimentoIds.has(s.id);
       const card = document.createElement('div');
       card.className = 'sintesi-card p'+p + (isOpen ? ' open' : '');
+      const catTag = s.categoria ? (s.sottocategoria ? `${s.categoria} · ${s.sottocategoria}` : s.categoria) : '';
       card.innerHTML = `
         <div class="sintesi-top">
           <span class="sintesi-title">${escapeAttr(s.titolo)}</span>
-          <span class="sintesi-client">${escapeAttr(s.cliente||'')}</span>
+          <span class="sintesi-client">${escapeAttr(s.cliente||'')}${catTag ? ' · ' + escapeAttr(catTag) : ''}</span>
         </div>
         <div class="sintesi-preview">${escapeAttr(s.testo)}</div>
         <div class="sintesi-full">
@@ -1839,18 +1978,23 @@ const addPersonaForm = document.getElementById('addPersonaForm');
 addPersonaToggle.addEventListener('click', ()=>{
   addPersonaForm.style.display = addPersonaForm.style.display==='none' ? 'block' : 'none';
 });
+wireCategoriaSottocategoria(document.getElementById('personaCategoria'), document.getElementById('personaSottocategoria'), 'G&A', 'Altro');
 document.getElementById('cancelPersonaBtn').addEventListener('click', ()=>{
   addPersonaForm.style.display = 'none';
 });
 document.getElementById('savePersonaBtn').addEventListener('click', async ()=>{
   const nome = document.getElementById('personaNome').value.trim();
   const nota = document.getElementById('personaNote').value.trim();
+  const categoria = document.getElementById('personaCategoria').value;
+  const sottocategoria = document.getElementById('personaSottocategoria').value || null;
   if(!nome || !nota){ showToast('Compila nome e note'); return; }
   const existing = persone.find(p=>p.nome.toLowerCase()===nome.toLowerCase());
   if(existing){
     existing.note = existing.note + '\n' + nota;
+    existing.categoria = categoria;
+    existing.sottocategoria = sottocategoria;
   }else{
-    persone.push({ id:'p_'+Date.now(), nome, note: nota, aggiornato: new Date().toISOString() });
+    persone.push({ id:'p_'+Date.now(), nome, note: nota, categoria, sottocategoria, aggiornato: new Date().toISOString() });
   }
   await savePersone();
   document.getElementById('personaNome').value='';
@@ -1862,10 +2006,12 @@ document.getElementById('savePersonaBtn').addEventListener('click', async ()=>{
 document.getElementById('personeSearch').addEventListener('input', renderPersone);
 
 function renderPersone(){
+  renderFilterBar('personeFilterBar', personeFilterState, renderPersone);
   const q = document.getElementById('personeSearch').value.trim().toLowerCase();
   const container = document.getElementById('personeContent');
   container.innerHTML = '';
-  const filtered = persone.filter(p=> !q || p.nome.toLowerCase().includes(q) || p.note.toLowerCase().includes(q));
+  const filtered = persone.filter(p=> !q || p.nome.toLowerCase().includes(q) || p.note.toLowerCase().includes(q))
+    .filter(p=> matchesCategoryFilter(p, personeFilterState));
   if(filtered.length===0){
     container.innerHTML = `<div class="empty-state"><div class="eyebrow">Nessuna scheda</div>Le schede persona si creano anche in automatico dai tuoi scarichi vocali, oppure aggiungine una manualmente.</div>`;
     return;
@@ -1873,8 +2019,9 @@ function renderPersone(){
   filtered.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(p=>{
     const card = document.createElement('div');
     card.className = 'vad-card';
+    const catTag = p.categoria ? (p.sottocategoria ? `${p.categoria} · ${p.sottocategoria}` : p.categoria) : '';
     card.innerHTML = `
-      <div class="vad-top"><span class="vad-title">${escapeAttr(p.nome)}</span></div>
+      <div class="vad-top"><span class="vad-title">${escapeAttr(p.nome)}</span>${catTag?`<span class="vad-type">${escapeAttr(catTag)}</span>`:''}</div>
       <div class="vad-preview">${escapeAttr(p.note)}</div>
       <div class="vad-full">${escapeAttr(p.note)}</div>
     `;
@@ -1976,6 +2123,90 @@ document.getElementById('savePlaudConfigBtn').addEventListener('click', ()=>{
   renderPlaudConfigStatus();
   showToast('Collegamento Plaud salvato');
   checkPlaudPending();
+});
+
+/* ---------- BACKUP AUTOMATICO SU CLOUDFLARE (7 scomparti, uno per giorno) ---------- */
+const GIORNI_SETTIMANA = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
+let autoBackupTimer = null;
+function scheduleAutoBackup(){
+  const cfg = getPlaudConfig();
+  if(!cfg.url || !cfg.secret) return; // riusa lo stesso collegamento configurato per Plaud
+  clearTimeout(autoBackupTimer);
+  autoBackupTimer = setTimeout(doAutoBackup, 4000);
+}
+async function doAutoBackup(){
+  const cfg = getPlaudConfig();
+  if(!cfg.url || !cfg.secret) return;
+  const day = new Date().getDay();
+  const backup = { tasks, vademecum, sintesi, persone };
+  try{
+    const res = await fetch(`${cfg.url}/backup?day=${day}&secret=${encodeURIComponent(cfg.secret)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(backup)
+    });
+    if(res.ok){
+      localStorage.setItem('leobrain_last_autobackup', new Date().toISOString());
+      renderAutoBackupStatus();
+    }
+  }catch(e){ /* fallisce in silenzio: i dati restano comunque al sicuro in locale */ }
+}
+function renderAutoBackupStatus(){
+  const el = document.getElementById('autoBackupStatus');
+  if(!el) return;
+  const last = localStorage.getItem('leobrain_last_autobackup');
+  el.innerHTML = last
+    ? `<span style="color:var(--ok);">● Ultimo backup automatico: ${new Date(last).toLocaleString('it-IT')}</span>`
+    : `<span style="color:var(--paper-dim);">● Nessun backup automatico ancora effettuato</span>`;
+}
+
+document.getElementById('checkCloudBackupsBtn').addEventListener('click', async ()=>{
+  const cfg = getPlaudConfig();
+  const listEl = document.getElementById('cloudBackupsList');
+  if(!cfg.url || !cfg.secret){ showToast('Imposta prima il collegamento Plaud/Worker qui sopra'); return; }
+  listEl.innerHTML = `<div class="approf-loading"><span class="spinner"></span> Controllo backup su Cloudflare…</div>`;
+  try{
+    const res = await fetch(`${cfg.url}/backup/list?secret=${encodeURIComponent(cfg.secret)}`);
+    if(!res.ok){ throw new Error('HTTP ' + res.status); }
+    const data = await res.json();
+    const backups = Array.isArray(data.backups) ? data.backups : [];
+    if(backups.length === 0){
+      listEl.innerHTML = `<div class="approf-loading">Nessun backup automatico trovato su Cloudflare ancora.</div>`;
+      return;
+    }
+    listEl.innerHTML = '';
+    backups.sort((a,b)=> (b.savedAt||'').localeCompare(a.savedAt||''));
+    backups.forEach(b=>{
+      const item = document.createElement('div');
+      item.className = 'plaud-item';
+      item.innerHTML = `
+        <div class="plaud-item-meta">${GIORNI_SETTIMANA[b.day]} — ${new Date(b.savedAt).toLocaleString('it-IT')}</div>
+        <button class="btn btn-small btn-primary" data-day="${b.day}">Ripristina questo backup</button>
+      `;
+      item.querySelector('[data-day]').addEventListener('click', async ()=>{
+        const ok = confirm(`Ripristinare il backup di ${GIORNI_SETTIMANA[b.day]} (${new Date(b.savedAt).toLocaleString('it-IT')})?\nSostituirà tutti i dati attuali su questo dispositivo.`);
+        if(!ok) return;
+        try{
+          const r2 = await fetch(`${cfg.url}/backup?day=${b.day}&secret=${encodeURIComponent(cfg.secret)}`);
+          if(!r2.ok) throw new Error('HTTP ' + r2.status);
+          const payload = await r2.json();
+          const restored = payload.data || {};
+          tasks = Array.isArray(restored.tasks) ? restored.tasks.map(normalizeTask) : [];
+          vademecum = Array.isArray(restored.vademecum) ? restored.vademecum : [];
+          sintesi = Array.isArray(restored.sintesi) ? restored.sintesi : [];
+          persone = Array.isArray(restored.persone) ? restored.persone : [];
+          await saveTasks(); await saveVademecum(); await saveSintesi(); await savePersone();
+          renderMatrix(); renderVademecum(); renderSintesi(); renderPersone();
+          showToast('Backup ripristinato');
+        }catch(err){
+          showToast('Errore nel ripristino: ' + (err.message||err));
+        }
+      });
+      listEl.appendChild(item);
+    });
+  }catch(e){
+    listEl.innerHTML = `<div class="approf-loading">Errore: ${escapeAttr(e.message||String(e))}</div>`;
+  }
 });
 
 async function checkPlaudPending(){
